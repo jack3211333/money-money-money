@@ -39,6 +39,14 @@ export const authRepository = {
     })
     if (error) throw error
   },
+  async signInWithPassword(email: string, password: string) {
+    const { error } = await client().auth.signInWithPassword({ email, password })
+    if (error) throw error
+  },
+  async setPassword(password: string) {
+    const { error } = await client().auth.updateUser({ password })
+    if (error) throw error
+  },
   async signOut() {
     const { error } = await client().auth.signOut()
     if (error) throw error

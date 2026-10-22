@@ -10,8 +10,8 @@
 
 ## 技術選型
 
-- 前端：Vite、React、TypeScript、vite-plugin-pwa。
-- 雲端：Supabase Auth（Email 魔法連結）與 Postgres；資料表啟用 RLS。
+- 前端：Vite、React、TypeScript、原生 PWA manifest/service worker。
+- 雲端：Supabase Auth（Email＋密碼）與 Postgres；資料表啟用 RLS。
 - 部署：GitHub + Vercel，自動部署。
 - 金額：TWD 整數元，不使用浮點數。
 

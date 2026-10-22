@@ -1,6 +1,6 @@
 # Money Money Money
 
-手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email 魔法連結登入。
+手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入。
 
 ## 本機啟動
 
@@ -23,7 +23,9 @@ VITE_SUPABASE_URL=你的 Project URL
 VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 ```
 
-6. 重新執行 `npm run dev`。輸入自己的 Email，點信箱中的連結登入。
+6. 重新執行 `npm run dev`。已登入的舊帳號可在「設定 → 設定登入密碼」設定密碼，再於手機用同一 Email 登入。保留相同帳號，資料才會同步。
+
+密碼登入不會每次寄信；首次註冊與忘記密碼的 Email 流程仍需寄信服務。若目前所有裝置都已登出，先等寄信額度恢復或設定自訂 SMTP，完成一次登入後再設定密碼。
 
 ## 驗證清單
 
