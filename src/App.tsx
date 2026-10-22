@@ -24,7 +24,27 @@ export default function App() {
 }
 
 function Setup() { return <main className="center"><section className="login"><b className="logo">¥</b><h1>連接你的帳本</h1><p>網站已準備好，尚未連接 Supabase 雲端資料庫。</p><ol><li>依 README 建立 Supabase 專案。</li><li>將 <code>.env.example</code> 複製為 <code>.env</code>。</li><li>自行填入網址和 Publishable key，重新啟動。</li></ol><small>金鑰不會儲存在程式碼或 Git。</small></section></main> }
-function Login() { const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const submit = async (event: FormEvent) => { event.preventDefault(); setBusy(true); try { await authRepository.signInWithPassword(email, password) } catch (cause) { setError(cause instanceof Error ? cause.message : '登入失敗') } finally { setBusy(false) } }; return <main className="center"><form className="login" onSubmit={submit}><b className="logo">¥</b><h1>你的財務，自己掌握</h1><p>使用已設定密碼的帳號登入。</p><label>Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label><label>密碼<input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>{error && <p className="notice error">{error}</p>}<button className="primary wide" disabled={busy}>{busy ? '登入中…' : '登入'}</button></form></main> }
+function Login() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async (event: FormEvent) => {
+    event.preventDefault(); setBusy(true); setError('')
+    try { await authRepository.signInWithPassword(email, password) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '登入失敗') }
+    finally { setBusy(false) }
+  }
+  const magic = async () => {
+    if (!email) { setError('請先輸入 Email。'); return }
+    setBusy(true); setError('')
+    try { await authRepository.sendMagicLink(email); setMessage('已寄出登入連結，請查看信箱。登入後到設定頁建立密碼。') }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '寄送失敗；請稍後再試。') }
+    finally { setBusy(false) }
+  }
+  return <main className="center"><form className="login" onSubmit={submit}><b className="logo">¥</b><h1>你的財務，自己掌握</h1><p>使用同一個 Email 和密碼登入。</p><label>Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label><label>密碼<input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>{error && <p className="notice error">{error}</p>}{message && <p className="notice success">{message}</p>}<button className="primary wide" disabled={busy}>{busy ? '處理中…' : '登入'}</button><button type="button" className="secondary wide" disabled={busy} onClick={() => void magic()}>尚未設定密碼？寄一次登入連結</button></form></main>
+}
 function Nav({ page, value, label, icon, set }: { page: Page; value: Page; label: string; icon: string; set: (page: Page) => void }) { return <button className={page === value ? 'nav active' : 'nav'} onClick={() => set(value)}><b>{icon}</b><span>{label}</span></button> }
 function Home({ data, open }: { data: FinanceSnapshot; open: (m: Modal) => void }) { const totals = useMemo(() => financialTotals(data), [data]); const currentMonth = dateToday().slice(0, 7); const flow = data.transactions.filter((t) => t.transaction_date.startsWith(currentMonth)).reduce((all, t) => ({ income: all.income + (t.kind === 'income' ? t.amount : 0), expense: all.expense + (t.kind === 'expense' ? t.amount : 0) }), { income: 0, expense: 0 }); return <><section className="hero"><span>淨資產</span><strong>{twd(totals.netWorth)}</strong><small>資產 {twd(totals.assets)}　負債 {twd(totals.liabilities)}</small></section><div className="metrics"><Metric title="本月收入" value={twd(flow.income)} /><Metric title="本月支出" value={twd(flow.expense)} /></div><Section title="帳戶餘額" action="管理" click={() => open('account')}><div className="list">{data.accounts.filter((a) => !a.is_archived).map((a) => <div className="row" key={a.id}><span><b>{a.name}</b><small>{accountKinds[a.kind]}</small></span><strong>{twd(accountBalance(a, data.transactions))}</strong></div>)}{!data.accounts.length && <Empty text="先新增現金、銀行或股票帳戶。" />}</div></Section></> }
 function Metric({ title, value }: { title: string; value: string }) { return <div className="metric"><small>{title}</small><b>{value}</b></div> }
