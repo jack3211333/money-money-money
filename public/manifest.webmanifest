@@ -1,0 +1,12 @@
+{
+  "name": "Money Money Money",
+  "short_name": "記帳",
+  "description": "個人記帳與資產推演工具",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101218",
+  "theme_color": "#101218",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
