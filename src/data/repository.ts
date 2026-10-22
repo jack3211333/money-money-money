@@ -16,6 +16,12 @@ const active = async <T>(table: TableName, order: string): Promise<T[]> => {
   return data as T[]
 }
 
+const all = async <T>(table: TableName, order: string): Promise<T[]> => {
+  const { data, error } = await client().from(table).select('*').order(order)
+  if (error) throw error
+  return data as T[]
+}
+
 const save = async <T extends { id: string }>(table: TableName, value: Partial<T> & Record<string, unknown>): Promise<T> => {
   const { id, ...changes } = value
   const request = id
@@ -29,6 +35,7 @@ const save = async <T extends { id: string }>(table: TableName, value: Partial<T
 export const authRepository = {
   async currentUser(): Promise<User | null> {
     const { data, error } = await client().auth.getUser()
+    if (error?.name === 'AuthSessionMissingError') return null
     if (error) throw error
     return data.user
   },
@@ -59,8 +66,10 @@ export const authRepository = {
 export const financeRepository = {
   async snapshot(): Promise<FinanceSnapshot> {
     if (!supabase) return emptySnapshot
+    const { error: categorySeedError } = await client().rpc('ensure_default_categories')
+    if (categorySeedError) throw categorySeedError
     const [accounts, categories, transactions, liabilities, stocks, recurringRules, investmentPlans] = await Promise.all([
-      active<Account>('accounts', 'name'), active<Category>('categories', 'sort_order'), active<Transaction>('transactions', 'transaction_date'),
+      active<Account>('accounts', 'name'), all<Category>('categories', 'sort_order'), active<Transaction>('transactions', 'transaction_date'),
       active<Liability>('liabilities', 'start_date'), active<Stock>('stocks', 'ticker'), active<RecurringRule>('recurring_rules', 'name'),
       active<InvestmentPlan>('investment_plans', 'name'),
     ])
@@ -89,6 +98,10 @@ export const financeRepository = {
   },
   async softDelete(table: TableName, id: string) {
     const { error } = await client().from(table).update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    if (error) throw error
+  },
+  async softDeleteCategory(id: string) {
+    const { error } = await client().rpc('soft_delete_category', { target_id: id })
     if (error) throw error
   },
   async softDeleteTransfer(groupId: string) {

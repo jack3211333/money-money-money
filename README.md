@@ -14,7 +14,7 @@
 
 1. 登入 Supabase，按 **New project**，選擇組織、命名並設定資料庫密碼，按 **Create new project**。
 2. 專案完成後，到左側 **SQL Editor**，按 **New query**。
-3. 開啟 `supabase/migrations/202610230001_initial_finance_schema.sql`，完整複製內容貼進編輯器，按 **Run**。這會建立資料表與 RLS，請勿改用後台手建表。
+3. 依檔名順序開啟 `supabase/migrations/` 下的 SQL，完整複製內容貼進編輯器並按 **Run**。這會建立資料表、RLS 與大小分類，請勿改用後台手建表。
 4. 到 **Authentication → URL Configuration**，在 **Site URL** 填本機網址（通常是 `http://localhost:5173`）；部署後再加入 Vercel 網址作為 Redirect URL。
 5. 到 **Project Settings → API**，複製 **Project URL** 和 **Publishable key**。將它們只填入本機 `.env`：
 
@@ -29,8 +29,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 
 ## 驗證清單
 
-1. 在設定新增「現金」、「銀行」與「股票帳戶」，再新增一個收入和一個支出分類。
-2. 新增收入、支出與銀行轉現金；確認總覽的帳戶餘額正確，編輯或刪除轉帳時兩邊會一起更新。
+1. 在設定新增「現金」、「銀行」與「股票帳戶」；確認有收入 2 大類、支出 5 大類，大小分類皆可新增、編輯顏色並從 55 個 icon 中選擇。
+2. 新增收入、支出與銀行轉現金；確認交易可直接選大分類或小分類、分類 icon 顯示正確，且總覽的帳戶餘額正確。
 3. 新增一筆貸款與年利率為 0 的零卡分期，確認負債頁與推演頁顯示剩餘餘額。
 4. 新增股票帳戶和股票，填成本、年化報酬率與選填的市值修正；確認總覽淨資產與推演有變化。
 5. 新增固定收支與持續投入，確認推演表每月月底顯示資產、現金、股票、負債、淨資產。這些設定不可改變真實交易。

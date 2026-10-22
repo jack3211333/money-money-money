@@ -1,0 +1,77 @@
+/* eslint-disable react/only-export-components -- the shared icon registry and renderer intentionally live together */
+import { createElement } from 'react'
+import {
+  Baby, BadgeDollarSign, Banknote, Bike, BookOpen, BriefcaseBusiness, Building2, Bus, CakeSlice,
+  Car, CircleDollarSign, CircleEllipsis, Coffee, Coins, Dumbbell, Film, Fuel, Gamepad2, Gift,
+  GraduationCap, HandCoins, HeartPulse, House, HousePlug, Landmark, Laptop, MonitorSmartphone,
+  Music, PartyPopper, PawPrint, PiggyBank, Pill, Plane, ReceiptText, RotateCcw, Scissors,
+  ShieldCheck, Shirt, ShoppingBag, ShoppingBasket, Smartphone, Soup, Sparkles, Stethoscope,
+  Store, Tag, TrainFront, TramFront, TrendingUp, Utensils, UtensilsCrossed, WalletCards, Wifi,
+  Wrench, Zap, type LucideIcon,
+} from 'lucide-react'
+
+type CategoryIconOption = { key: string; label: string; Icon: LucideIcon }
+
+export const categoryIconOptions: CategoryIconOption[] = [
+  { key: 'tag', label: '一般', Icon: Tag },
+  { key: 'utensils', label: '餐飲', Icon: Utensils },
+  { key: 'utensils-crossed', label: '正餐', Icon: UtensilsCrossed },
+  { key: 'soup', label: '點心', Icon: Soup },
+  { key: 'coffee', label: '咖啡', Icon: Coffee },
+  { key: 'cake-slice', label: '甜點', Icon: CakeSlice },
+  { key: 'car', label: '汽車', Icon: Car },
+  { key: 'bus', label: '公車', Icon: Bus },
+  { key: 'train-front', label: '火車', Icon: TrainFront },
+  { key: 'tram-front', label: '捷運', Icon: TramFront },
+  { key: 'bike', label: '單車', Icon: Bike },
+  { key: 'fuel', label: '加油', Icon: Fuel },
+  { key: 'house', label: '居家', Icon: House },
+  { key: 'building-2', label: '房租', Icon: Building2 },
+  { key: 'house-plug', label: '家用', Icon: HousePlug },
+  { key: 'zap', label: '水電', Icon: Zap },
+  { key: 'wifi', label: '網路', Icon: Wifi },
+  { key: 'receipt-text', label: '帳單', Icon: ReceiptText },
+  { key: 'shopping-basket', label: '日用', Icon: ShoppingBasket },
+  { key: 'shopping-bag', label: '購物', Icon: ShoppingBag },
+  { key: 'shirt', label: '服飾', Icon: Shirt },
+  { key: 'smartphone', label: '手機', Icon: Smartphone },
+  { key: 'monitor-smartphone', label: '3C', Icon: MonitorSmartphone },
+  { key: 'heart-pulse', label: '保健', Icon: HeartPulse },
+  { key: 'pill', label: '藥品', Icon: Pill },
+  { key: 'stethoscope', label: '醫療', Icon: Stethoscope },
+  { key: 'gamepad-2', label: '遊戲', Icon: Gamepad2 },
+  { key: 'film', label: '電影', Icon: Film },
+  { key: 'music', label: '音樂', Icon: Music },
+  { key: 'party-popper', label: '娛樂', Icon: PartyPopper },
+  { key: 'plane', label: '旅行', Icon: Plane },
+  { key: 'gift', label: '禮物', Icon: Gift },
+  { key: 'dumbbell', label: '運動', Icon: Dumbbell },
+  { key: 'book-open', label: '閱讀', Icon: BookOpen },
+  { key: 'graduation-cap', label: '教育', Icon: GraduationCap },
+  { key: 'baby', label: '育兒', Icon: Baby },
+  { key: 'paw-print', label: '寵物', Icon: PawPrint },
+  { key: 'scissors', label: '美容', Icon: Scissors },
+  { key: 'wrench', label: '維修', Icon: Wrench },
+  { key: 'briefcase-business', label: '工作', Icon: BriefcaseBusiness },
+  { key: 'laptop', label: '接案', Icon: Laptop },
+  { key: 'store', label: '營業', Icon: Store },
+  { key: 'banknote', label: '薪資', Icon: Banknote },
+  { key: 'sparkles', label: '獎金', Icon: Sparkles },
+  { key: 'coins', label: '零用', Icon: Coins },
+  { key: 'wallet-cards', label: '錢包', Icon: WalletCards },
+  { key: 'trending-up', label: '投資', Icon: TrendingUp },
+  { key: 'piggy-bank', label: '儲蓄', Icon: PiggyBank },
+  { key: 'badge-dollar-sign', label: '收入', Icon: BadgeDollarSign },
+  { key: 'hand-coins', label: '回饋', Icon: HandCoins },
+  { key: 'rotate-ccw', label: '退款', Icon: RotateCcw },
+  { key: 'circle-dollar-sign', label: '金錢', Icon: CircleDollarSign },
+  { key: 'landmark', label: '銀行', Icon: Landmark },
+  { key: 'shield-check', label: '保險', Icon: ShieldCheck },
+  { key: 'circle-ellipsis', label: '其他', Icon: CircleEllipsis },
+]
+
+const iconMap = new Map(categoryIconOptions.map((option) => [option.key, option.Icon]))
+
+export function CategoryIcon({ iconKey, size = 20 }: { iconKey: string; size?: number }) {
+  return createElement(iconMap.get(iconKey) ?? Tag, { 'aria-hidden': true, size, strokeWidth: 2 })
+}
