@@ -17,11 +17,11 @@
 ## 未完成
 
 - 尚未設定自訂 SMTP；目前只會影響一次性登入連結與密碼重設信，不影響日常密碼登入。
-- 帳戶圖標 migration 尚未套用至 Supabase；套用後才能在本機測試儲存。
+- 帳戶圖標 migration 尚未套用至 Supabase；套用後線上版與本機版才能儲存圖標。
 
 ## 下一步
 
-1. 在測試所連接的 Supabase 專案套用 `202610240001_account_icons.sql`，以 `npm run dev` 驗收帳戶圖標；本次不推送 GitHub 或部署 Vercel。
+1. 確認 GitHub `main` 的推送已由 Vercel 部署，再在 Supabase SQL Editor 套用 `202610240001_account_icons.sql`，即可在線上版與本機版驗收圖標儲存。
 2. 若需要忘記密碼或邀請其他使用者，再設定自訂 SMTP。
 3. 持續驗收手機上的大小分類、icon 選擇與跨裝置同步。
 4. 依路線圖決定下一個擴充功能。
