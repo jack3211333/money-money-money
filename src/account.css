@@ -1,0 +1,24 @@
+.account-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #fff;
+  color: #486578;
+}
+
+.account-icon img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.account-icon-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.account-icon-choice { min-height: 64px; display: grid; place-items: center; border: 1px solid #354351; border-radius: 11px; background: #11161d; }
+.account-icon-choice.selected { outline: 2px solid #72e3bc; border-color: transparent; background: #19352f; }
+.account-icon-choice:focus-visible, .account-picker-trigger:focus-visible, .account-picker-option:focus-visible { outline: 2px solid #72e3bc; }
+.account-picker { position: relative; min-width: 0; }
+.account-picker-trigger { width: 100%; min-height: 46px; display: flex; align-items: center; gap: 9px; padding: 6px 10px; border: 1px solid #354351; border-radius: 10px; background: #11161d; color: #edf4f8; text-align: left; }
+.account-picker-trigger > span:nth-child(2) { flex: 1; min-width: 0; }
+.account-picker-trigger > span:last-child { margin-left: auto; }
+.account-picker-panel { position: relative; z-index: 2; display: grid; gap: 5px; max-height: 300px; overflow: auto; margin-top: 6px; padding: 7px; border: 1px solid #354351; border-radius: 12px; background: #11161d; box-shadow: 0 12px 30px #0008; }
+.account-picker-option { min-height: 50px; display: flex; align-items: center; gap: 9px; padding: 6px 9px; border: 1px solid transparent; border-radius: 9px; background: #1a212a; color: #dce7ee; text-align: left; }
+.account-picker-option > span:nth-child(2) { display: grid; gap: 2px; }
+.account-picker-option.selected { border-color: #72e3bc; background: #19352f; }
+.transaction-detail { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }

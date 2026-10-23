@@ -5,7 +5,7 @@ export type LiabilityKind = 'loan' | 'installment'
 export type RecurringKind = 'income' | 'expense' | 'transfer'
 
 export type BaseRecord = { id: string; user_id: string; created_at: string; updated_at: string; deleted_at: string | null }
-export type Account = BaseRecord & { name: string; kind: AccountKind; opening_balance: number; currency: 'TWD'; is_archived: boolean }
+export type Account = BaseRecord & { name: string; kind: AccountKind; icon_key: string | null; opening_balance: number; currency: 'TWD'; is_archived: boolean }
 export type Category = BaseRecord & { name: string; direction: CategoryDirection; color: string; icon_key: string; parent_id: string | null; sort_order: number }
 export type Transaction = BaseRecord & { transaction_date: string; amount: number; kind: TransactionKind; account_id: string; category_id: string | null; transfer_group_id: string | null; note: string }
 export type Liability = BaseRecord & { name: string; kind: LiabilityKind; principal: number; annual_rate_bps: number; term_months: number; start_date: string }
