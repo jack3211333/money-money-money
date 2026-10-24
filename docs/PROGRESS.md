@@ -16,6 +16,7 @@
 - 已於 2026-10-24 在 Supabase `MoneyMoneyMoney` 專案套用帳戶圖標 migration，並確認 `accounts.icon_key` 為可空的 `text` 欄位。
 - 已修正首頁與設定帳戶列的圖標被 flex 樣式拉寬、圖片遭裁切問題；`.row` 內圖標維持固定方形尺寸。
 - 股票資料已改為代號、目前市值基準與年化報酬率；編輯時可留空維持估值，或用一次性市值修正重設當日基準。`202610240002_simplify_stock_valuation.sql` 已於 2026-10-24 套用至 MoneyMoneyMoney Supabase 專案；確認舊欄位已移除、市值與日期必填、RLS 啟用，且持續投入股票外鍵仍在。`npm run build` 已通過。
+- 貸款表單支援年利率與月繳款互算，分期採 0% 並自訂月繳款；股票軟刪除會連動軟刪除持續投入，推演亦忽略孤立計畫。`202610240003_liability_payments_and_stock_plan_cleanup.sql` 已於 2026-10-24 套用至 MoneyMoneyMoney Supabase 專案；確認月繳款必填且有效、分期利率已歸零、刪除 trigger 存在、RLS 啟用，並無仍有效但指向已刪股票的計畫。`npm run build` 已通過。
 
 ## 未完成
 

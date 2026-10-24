@@ -6,13 +6,14 @@ Migrations：
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
 - `supabase/migrations/202610240001_account_icons.sql`
 - `supabase/migrations/202610240002_simplify_stock_valuation.sql`
+- `supabase/migrations/202610240003_liability_payments_and_stock_plan_cleanup.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
 | `accounts` | 現金、銀行、股票帳戶；起始餘額、封存狀態與可為空的 `icon_key`。 |
 | `categories` | 兩層收入／支出分類；`parent_id` 為空時是大分類，否則是小分類；`icon_key` 儲存圖示。 |
 | `transactions` | 收入、支出及成對轉帳；轉帳以 `transfer_group_id` 連結。 |
-| `liabilities` | 貸款或分期負債：本金、年利率、期數、起始日。 |
+| `liabilities` | 貸款或分期負債：本金、年利率、整數元月繳款、期數、起始日。分期使用 0% 利率及自訂月繳款。 |
 | `stocks` | 股票帳戶、代號、目前市值基準日期與年化報酬率；不記錄股數或總成本。 |
 | `recurring_rules` | 僅供推演的固定收支／轉帳。 |
 | `investment_plans` | 僅供推演的每月股票持續投入。 |
@@ -24,3 +25,5 @@ Migrations：
 `accounts.icon_key` 可為空，既有帳戶不回填圖標。帳戶圖標使用獨立的 `account-icon-1` 至 `account-icon-4` key；圖片為本機靜態資產，並非使用者上傳資料。
 
 `stocks.valuation_amount` 與 `valuation_date` 必填，代表目前市值基準及其日期。新增股票時以輸入市值和新增日作為基準；編輯時可留空不修正，或輸入一次性修正值並以修正當日作為新基準。估值與推演依年化報酬率計算。202610240002 migration 將既有股票截至套用日的推算市值回填為新基準，再移除 `shares` 與 `total_cost`。
+
+`liabilities.monthly_payment` 必填且為正整數 TWD。貸款年利率與月繳款按本息平均攤還公式互算；既有月繳款由原年利率回填。分期不顯示年利率，固定使用 0%；migration 將既有分期利率設為 0%，月繳款回填為本金除以期數的整數元。刪除股票時，資料庫 trigger 會軟刪除同一使用者對應的有效 `investment_plans`；推演亦只採用仍有效股票的計畫。

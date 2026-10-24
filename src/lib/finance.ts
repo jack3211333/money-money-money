@@ -16,17 +16,41 @@ export const monthsBetween = (startDate: string, endDate = dateToday()) => {
   return Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth())
 }
 
-export const monthlyPayment = (liability: Liability) => {
-  const rate = liability.annual_rate_bps / 10000 / 12
-  if (rate === 0) return liability.principal / liability.term_months
-  return liability.principal * (rate * (1 + rate) ** liability.term_months) / ((1 + rate) ** liability.term_months - 1)
+export const paymentForRate = (principal: number, annualRateBps: number, termMonths: number) => {
+  if (principal <= 0 || termMonths <= 0) return 0
+  const monthlyRate = annualRateBps / 10000 / 12
+  if (monthlyRate === 0) return Math.max(1, Math.round(principal / termMonths))
+  const factor = (1 + monthlyRate) ** termMonths
+  return Math.max(1, Math.round(principal * monthlyRate * factor / (factor - 1)))
 }
+
+export const rateForPayment = (principal: number, payment: number, termMonths: number): number | null => {
+  if (principal <= 0 || payment <= 0 || termMonths <= 0 || payment < principal / termMonths) return null
+  if (payment === principal / termMonths) return 0
+  const paymentAtRate = (annualRate: number) => {
+    const monthlyRate = annualRate / 10000 / 12
+    const factor = (1 + monthlyRate) ** termMonths
+    return principal * monthlyRate * factor / (factor - 1)
+  }
+  const maximumRateBps = 100000
+  if (payment > paymentAtRate(maximumRateBps)) return null
+  let low = 0
+  let high = maximumRateBps
+  for (let iteration = 0; iteration < 64; iteration += 1) {
+    const middle = (low + high) / 2
+    if (paymentAtRate(middle) < payment) low = middle
+    else high = middle
+  }
+  return Math.round((low + high) / 2)
+}
+
+export const monthlyPayment = (liability: Liability) => liability.monthly_payment
 
 export const liabilityBalance = (liability: Liability, date = dateToday()) => {
   const paidMonths = Math.min(liability.term_months, monthsBetween(liability.start_date, date))
   const rate = liability.annual_rate_bps / 10000 / 12
   if (paidMonths >= liability.term_months) return 0
-  if (rate === 0) return Math.max(0, liability.principal * (1 - paidMonths / liability.term_months))
+  if (rate === 0) return Math.max(0, liability.principal - liability.monthly_payment * paidMonths)
   const payment = monthlyPayment(liability)
   return Math.max(0, liability.principal * (1 + rate) ** paidMonths - payment * (((1 + rate) ** paidMonths - 1) / rate))
 }
@@ -51,6 +75,7 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
   const start = new Date(); start.setDate(1)
   const balances = Object.fromEntries(snapshot.accounts.filter((account) => account.kind !== 'stock').map((account) => [account.id, accountBalance(account, snapshot.transactions)])) as Record<string, number>
   const stockValues = Object.fromEntries(snapshot.stocks.map((stock) => [stock.id, stockValue(stock)])) as Record<string, number>
+  const activeStockIds = new Set(snapshot.stocks.map((stock) => stock.id))
   return Array.from({ length: 12 }, (_, index) => {
     const month = new Date(start.getFullYear(), start.getMonth() + index + 1, 0)
     const monthNumber = month.getMonth() + 1
@@ -60,7 +85,7 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
       if (rule.kind === 'transfer' && rule.target_account_id) { balances[rule.account_id] = (balances[rule.account_id] ?? 0) - rule.amount; balances[rule.target_account_id] = (balances[rule.target_account_id] ?? 0) + rule.amount }
     })
     snapshot.stocks.forEach((stock) => { stockValues[stock.id] = (stockValues[stock.id] ?? 0) * (1 + stock.annual_return_bps / 10000 / 12) })
-    snapshot.investmentPlans.filter((plan) => plan.is_active && month >= new Date(`${plan.start_date}T00:00:00`) && (!plan.end_date || month <= new Date(`${plan.end_date}T23:59:59`))).forEach((plan) => { balances[plan.funding_account_id] = (balances[plan.funding_account_id] ?? 0) - plan.monthly_amount; stockValues[plan.stock_id] = (stockValues[plan.stock_id] ?? 0) + plan.monthly_amount })
+    snapshot.investmentPlans.filter((plan) => activeStockIds.has(plan.stock_id) && plan.is_active && month >= new Date(`${plan.start_date}T00:00:00`) && (!plan.end_date || month <= new Date(`${plan.end_date}T23:59:59`))).forEach((plan) => { balances[plan.funding_account_id] = (balances[plan.funding_account_id] ?? 0) - plan.monthly_amount; stockValues[plan.stock_id] = (stockValues[plan.stock_id] ?? 0) + plan.monthly_amount })
     const cash = Object.values(balances).reduce((sum, value) => sum + value, 0)
     const stocks = Object.values(stockValues).reduce((sum, value) => sum + value, 0)
     const date = month.toISOString().slice(0, 10)
