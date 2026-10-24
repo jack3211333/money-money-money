@@ -116,8 +116,13 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
       const dueDay = Math.min(Number(liability.start_date.slice(8)), month.getDate())
       const dueDate = `${monthKey}-${String(dueDay).padStart(2, '0')}`
       if (dueDate < today) return
-      loanPayments += liability.monthly_payment
-      addExpense(`${liability.name}月繳`, liability.monthly_payment)
+      const beforeDue = new Date(month.getFullYear(), month.getMonth(), dueDay - 1)
+      const beforeDueDate = `${beforeDue.getFullYear()}-${String(beforeDue.getMonth() + 1).padStart(2, '0')}-${String(beforeDue.getDate()).padStart(2, '0')}`
+      const outstanding = liabilityBalance(liability, beforeDueDate)
+      if (outstanding <= 0) return
+      const dueAmount = Math.min(liability.monthly_payment, Math.ceil(outstanding * (1 + liability.annual_rate_bps / 120000)))
+      loanPayments += dueAmount
+      addExpense(`${liability.name}月繳`, dueAmount)
     })
     snapshot.stocks.forEach((stock) => { stockValues[stock.id] = (stockValues[stock.id] ?? 0) * (1 + stock.annual_return_bps / 10000 / 12) })
     snapshot.investmentPlans.filter((plan) => activeStockIds.has(plan.stock_id) && plan.is_active && plan.start_date <= monthEnd && (!plan.end_date || plan.end_date >= `${monthKey}-01`)).forEach((plan) => { balances[plan.funding_account_id] = (balances[plan.funding_account_id] ?? 0) - plan.monthly_amount; stockValues[plan.stock_id] = (stockValues[plan.stock_id] ?? 0) + plan.monthly_amount; stockContribution += plan.monthly_amount })
