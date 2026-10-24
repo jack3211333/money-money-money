@@ -32,8 +32,8 @@ export const liabilityBalance = (liability: Liability, date = dateToday()) => {
 }
 
 export const stockValue = (stock: Stock, date = dateToday()) => {
-  const base = stock.valuation_amount ?? stock.total_cost
-  const baseDate = stock.valuation_date ?? stock.created_at.slice(0, 10)
+  const base = stock.valuation_amount
+  const baseDate = stock.valuation_date
   const years = monthsBetween(baseDate, date) / 12
   return base * (1 + stock.annual_return_bps / 10000) ** years
 }
