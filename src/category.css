@@ -34,6 +34,7 @@
 .category-option-group { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .category-option { min-height: 46px; display: flex; align-items: center; gap: 8px; padding: 6px 9px; border: 1px solid transparent; border-radius: 9px; background: #1a212a; color: #dce7ee; text-align: left; }
 .category-option.root { grid-column: 1 / -1; background: #222c36; font-weight: 700; }
+.category-option-chevron { margin-left: auto; color: #9cabb9; }
 .category-option.child { margin-left: 12px; }
 .category-option.selected { border-color: #72e3bc; background: #19352f; }
 

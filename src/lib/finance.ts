@@ -78,13 +78,11 @@ export type ForecastMonth = { label: string; income: number; expenses: number; e
 
 export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
   const start = new Date(); start.setDate(1)
-  const balances = Object.fromEntries(snapshot.accounts.filter((account) => account.kind !== 'stock').map((account) => [account.id, accountBalance(account, snapshot.transactions)])) as Record<string, number>
+  let projectedCash = snapshot.accounts.filter((account) => account.kind !== 'stock').reduce((sum, account) => sum + accountBalance(account, snapshot.transactions), 0)
   const stockValues = Object.fromEntries(snapshot.stocks.map((stock) => [stock.id, stockValue(stock)])) as Record<string, number>
   const initialStockValue = Object.values(stockValues).reduce((sum, value) => sum + value, 0)
   let cumulativeContribution = 0
-  let cumulativeLoanPayments = 0
   const activeStockIds = new Set(snapshot.stocks.map((stock) => stock.id))
-  const cashAccountIds = new Set(snapshot.accounts.filter((account) => account.kind !== 'stock').map((account) => account.id))
   return Array.from({ length: 12 }, (_, index) => {
     const month = new Date(start.getFullYear(), start.getMonth() + index + 1, 0)
     const monthNumber = month.getMonth() + 1
@@ -100,13 +98,12 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
       const elapsed = monthsBetween(rule.start_date, monthEnd)
       return rule.is_active && rule.start_date <= monthEnd && (!rule.end_date || rule.end_date >= `${monthKey}-01`) && elapsed % rule.interval_months === 0
     }).forEach((rule) => {
-      if (rule.kind === 'income') { balances[rule.account_id] = (balances[rule.account_id] ?? 0) + rule.amount; income += rule.amount }
-      if (rule.kind === 'expense') { balances[rule.account_id] = (balances[rule.account_id] ?? 0) - rule.amount; addExpense(rule.name, rule.amount) }
-      if (rule.kind === 'transfer' && rule.target_account_id) { balances[rule.account_id] = (balances[rule.account_id] ?? 0) - rule.amount; balances[rule.target_account_id] = (balances[rule.target_account_id] ?? 0) + rule.amount }
+      if (rule.kind === 'income') { projectedCash += rule.amount; income += rule.amount }
+      if (rule.kind === 'expense') { projectedCash -= rule.amount; addExpense(rule.name, rule.amount) }
     })
-    snapshot.forecastEvents.filter((event) => cashAccountIds.has(event.account_id) && event.event_date.startsWith(monthKey) && event.event_date >= today).forEach((event) => {
+    snapshot.forecastEvents.filter((event) => event.event_date.startsWith(monthKey) && event.event_date >= today).forEach((event) => {
       const signed = event.kind === 'income' ? event.amount : -event.amount
-      balances[event.account_id] = (balances[event.account_id] ?? 0) + signed
+      projectedCash += signed
       if (event.kind === 'income') income += event.amount
       else addExpense(`${event.name} · ${event.event_date.slice(5)}`, event.amount)
     })
@@ -125,10 +122,10 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
       addExpense(`${liability.name}月繳`, dueAmount)
     })
     snapshot.stocks.forEach((stock) => { stockValues[stock.id] = (stockValues[stock.id] ?? 0) * (1 + stock.annual_return_bps / 10000 / 12) })
-    snapshot.investmentPlans.filter((plan) => activeStockIds.has(plan.stock_id) && plan.is_active && plan.start_date <= monthEnd && (!plan.end_date || plan.end_date >= `${monthKey}-01`)).forEach((plan) => { balances[plan.funding_account_id] = (balances[plan.funding_account_id] ?? 0) - plan.monthly_amount; stockValues[plan.stock_id] = (stockValues[plan.stock_id] ?? 0) + plan.monthly_amount; stockContribution += plan.monthly_amount })
+    snapshot.investmentPlans.filter((plan) => activeStockIds.has(plan.stock_id) && plan.is_active && plan.start_date <= monthEnd && (!plan.end_date || plan.end_date >= `${monthKey}-01`)).forEach((plan) => { projectedCash -= plan.monthly_amount; stockValues[plan.stock_id] = (stockValues[plan.stock_id] ?? 0) + plan.monthly_amount; stockContribution += plan.monthly_amount })
     cumulativeContribution += stockContribution
-    cumulativeLoanPayments += loanPayments
-    const cash = Object.values(balances).reduce((sum, value) => sum + value, 0) - cumulativeLoanPayments
+    projectedCash -= loanPayments
+    const cash = projectedCash
     const stocks = Object.values(stockValues).reduce((sum, value) => sum + value, 0)
     const liabilities = snapshot.liabilities.reduce((sum, liability) => sum + liabilityBalance(liability, monthEnd), 0)
     const expenses = expenseItems.reduce((sum, item) => sum + item.amount, 0)
