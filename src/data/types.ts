@@ -12,6 +12,7 @@ export type Liability = BaseRecord & { name: string; kind: LiabilityKind; princi
 export type Stock = BaseRecord & { account_id: string; ticker: string; annual_return_bps: number; valuation_amount: number; valuation_date: string }
 export type RecurringRule = BaseRecord & { name: string; kind: RecurringKind; amount: number; account_id: string; target_account_id: string | null; category_id: string | null; interval_months: number; day_of_month: number; start_date: string; end_date: string | null; is_active: boolean }
 export type InvestmentPlan = BaseRecord & { name: string; stock_id: string; funding_account_id: string; monthly_amount: number; day_of_month: number; start_date: string; end_date: string | null; is_active: boolean }
+export type ForecastEvent = BaseRecord & { name: string; kind: 'income' | 'expense'; amount: number; account_id: string; event_date: string }
 
-export type FinanceSnapshot = { accounts: Account[]; categories: Category[]; transactions: Transaction[]; liabilities: Liability[]; stocks: Stock[]; recurringRules: RecurringRule[]; investmentPlans: InvestmentPlan[] }
-export const emptySnapshot: FinanceSnapshot = { accounts: [], categories: [], transactions: [], liabilities: [], stocks: [], recurringRules: [], investmentPlans: [] }
+export type FinanceSnapshot = { accounts: Account[]; categories: Category[]; transactions: Transaction[]; liabilities: Liability[]; stocks: Stock[]; recurringRules: RecurringRule[]; investmentPlans: InvestmentPlan[]; forecastEvents: ForecastEvent[] }
+export const emptySnapshot: FinanceSnapshot = { accounts: [], categories: [], transactions: [], liabilities: [], stocks: [], recurringRules: [], investmentPlans: [], forecastEvents: [] }

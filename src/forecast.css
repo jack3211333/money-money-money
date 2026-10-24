@@ -1,0 +1,29 @@
+.forecast-actions{justify-content:flex-start;flex-wrap:wrap;gap:8px}
+.forecast-desktop{display:none}
+.forecast-mobile{display:grid;gap:9px}
+.forecast-card{border:1px solid #29333e;border-radius:13px;background:#181d25;overflow:hidden}
+.forecast-card>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;cursor:pointer;list-style:none}
+.forecast-card>summary::-webkit-details-marker{display:none}
+.forecast-card>summary span{display:grid;gap:4px}
+.forecast-card>summary strong{color:#72e3bc;font:700 17px 'DM Mono';white-space:nowrap}
+.forecast-card>summary small{font-size:12px}
+.forecast-card>summary::after{content:'⌄';color:#9cabb9}
+.forecast-card[open]>summary::after{content:'⌃'}
+.forecast-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:#29333e;border-top:1px solid #29333e}
+.forecast-card-grid>div{display:grid;gap:5px;min-width:0;padding:12px;background:#181d25}
+.forecast-card-grid>div small{font-size:12px}
+.forecast-card-grid>div b{font:600 14px 'DM Mono';overflow-wrap:anywhere}
+.expense-detail>summary{cursor:pointer;color:#f4b873;white-space:nowrap;list-style:disclosure-closed}
+.expense-detail[open]>summary{list-style:disclosure-open}
+.expense-detail ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;min-width:150px}
+.expense-detail li{display:flex;justify-content:space-between;gap:10px;font:12px system-ui;white-space:normal}
+.expense-detail li b{font:600 12px 'DM Mono';white-space:nowrap}
+@media(min-width:700px){
+  .forecast-mobile{display:none}
+  .forecast-desktop{display:block;overflow-x:auto}
+  .forecast .forecast-grid{display:grid;grid-template-columns:70px repeat(9,minmax(100px,1fr));min-width:1120px;gap:8px;padding:11px;font:12px 'DM Mono';border-top:1px solid #29333e}
+  .forecast .forecast-heading{border-top:0;color:#9caab8;background:#1b222b}
+  .forecast-grid>span{min-width:0}
+  .forecast-grid>b{color:#dce7ee}
+  .forecast-grid>span:last-child{color:#72e3bc;font-weight:700}
+}

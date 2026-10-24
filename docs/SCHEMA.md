@@ -7,6 +7,7 @@ Migrations：
 - `supabase/migrations/202610240001_account_icons.sql`
 - `supabase/migrations/202610240002_simplify_stock_valuation.sql`
 - `supabase/migrations/202610240003_liability_payments_and_stock_plan_cleanup.sql`
+- `supabase/migrations/202610240004_forecast_events.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -17,6 +18,7 @@ Migrations：
 | `stocks` | 股票帳戶、代號、目前市值基準日期與年化報酬率；不記錄股數或總成本。 |
 | `recurring_rules` | 僅供推演的固定收支／轉帳。 |
 | `investment_plans` | 僅供推演的每月股票持續投入。 |
+| `forecast_events` | 僅供推演的一次性收入或支出；記錄日期、項目、金額及現金／銀行帳戶。 |
 
 所有表均有 UUID `id`、`user_id`、`created_at`、`updated_at`、`deleted_at`。金額使用 `bigint`（TWD 整數元）；所有表均啟用 RLS，政策限定 `auth.uid() = user_id`。
 
@@ -27,3 +29,5 @@ Migrations：
 `stocks.valuation_amount` 與 `valuation_date` 必填，代表目前市值基準及其日期。新增股票時以輸入市值和新增日作為基準；編輯時可留空不修正，或輸入一次性修正值並以修正當日作為新基準。估值與推演依年化報酬率計算。202610240002 migration 將既有股票截至套用日的推算市值回填為新基準，再移除 `shares` 與 `total_cost`。
 
 `liabilities.monthly_payment` 必填且為正整數 TWD。貸款年利率與月繳款按本息平均攤還公式互算；既有月繳款由原年利率回填。分期不顯示年利率，固定使用 0%；migration 將既有分期利率設為 0%，月繳款回填為本金除以期數的整數元。刪除股票時，資料庫 trigger 會軟刪除同一使用者對應的有效 `investment_plans`；推演亦只採用仍有效股票的計畫。
+
+`forecast_events` 含 `name`、`kind`（income／expense）、`amount`、`account_id` 與 `event_date`。指定日期落在推演的未來 12 個月且未早於當日時，只計入該月一次；不建立真實交易。每筆資料具 `user_id`、時間欄位、軟刪除與 RLS。

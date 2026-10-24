@@ -1,7 +1,10 @@
 import type { Account, FinanceSnapshot, Liability, Stock, Transaction } from '../data/types'
 
 export const twd = (value: number) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(value)
-export const dateToday = () => new Date().toISOString().slice(0, 10)
+export const dateToday = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
 
 export const signedAmount = (transaction: Transaction) => {
   if (transaction.kind === 'income' || transaction.kind === 'transfer_in') return transaction.amount
@@ -47,7 +50,8 @@ export const rateForPayment = (principal: number, payment: number, termMonths: n
 export const monthlyPayment = (liability: Liability) => liability.monthly_payment
 
 export const liabilityBalance = (liability: Liability, date = dateToday()) => {
-  const paidMonths = Math.min(liability.term_months, monthsBetween(liability.start_date, date))
+  const dueDay = Math.min(Number(liability.start_date.slice(8)), new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0).getDate())
+  const paidMonths = Math.min(liability.term_months, Math.max(0, monthsBetween(liability.start_date, date) - (Number(date.slice(8)) < dueDay ? 1 : 0)))
   const rate = liability.annual_rate_bps / 10000 / 12
   if (paidMonths >= liability.term_months) return 0
   if (rate === 0) return Math.max(0, liability.principal - liability.monthly_payment * paidMonths)
@@ -69,27 +73,60 @@ export const financialTotals = (snapshot: FinanceSnapshot) => {
   return { cash, stocks, liabilities, assets: cash + stocks, netWorth: cash + stocks - liabilities }
 }
 
-export type ForecastMonth = { label: string; assets: number; cash: number; stocks: number; liabilities: number; netWorth: number; accounts: Record<string, number> }
+export type ForecastExpense = { name: string; amount: number }
+export type ForecastMonth = { label: string; income: number; expenses: number; expenseItems: ForecastExpense[]; monthlyNet: number; cash: number; stocks: number; stockContribution: number; cumulativeReturn: number; liabilities: number; netWorth: number }
 
 export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
   const start = new Date(); start.setDate(1)
   const balances = Object.fromEntries(snapshot.accounts.filter((account) => account.kind !== 'stock').map((account) => [account.id, accountBalance(account, snapshot.transactions)])) as Record<string, number>
   const stockValues = Object.fromEntries(snapshot.stocks.map((stock) => [stock.id, stockValue(stock)])) as Record<string, number>
+  const initialStockValue = Object.values(stockValues).reduce((sum, value) => sum + value, 0)
+  let cumulativeContribution = 0
+  let cumulativeLoanPayments = 0
   const activeStockIds = new Set(snapshot.stocks.map((stock) => stock.id))
+  const cashAccountIds = new Set(snapshot.accounts.filter((account) => account.kind !== 'stock').map((account) => account.id))
   return Array.from({ length: 12 }, (_, index) => {
     const month = new Date(start.getFullYear(), start.getMonth() + index + 1, 0)
     const monthNumber = month.getMonth() + 1
-    snapshot.recurringRules.filter((rule) => rule.is_active && month >= new Date(`${rule.start_date}T00:00:00`) && (!rule.end_date || month <= new Date(`${rule.end_date}T23:59:59`)) && ((index + 1) % rule.interval_months === 0)).forEach((rule) => {
-      if (rule.kind === 'income') balances[rule.account_id] = (balances[rule.account_id] ?? 0) + rule.amount
-      if (rule.kind === 'expense') balances[rule.account_id] = (balances[rule.account_id] ?? 0) - rule.amount
+    const monthKey = `${month.getFullYear()}-${String(monthNumber).padStart(2, '0')}`
+    const monthEnd = `${monthKey}-${String(month.getDate()).padStart(2, '0')}`
+    const today = dateToday()
+    let income = 0
+    let stockContribution = 0
+    let loanPayments = 0
+    const expenseItems: ForecastExpense[] = []
+    const addExpense = (name: string, amount: number) => expenseItems.push({ name, amount })
+    snapshot.recurringRules.filter((rule) => {
+      const elapsed = monthsBetween(rule.start_date, monthEnd)
+      return rule.is_active && rule.start_date <= monthEnd && (!rule.end_date || rule.end_date >= `${monthKey}-01`) && elapsed % rule.interval_months === 0
+    }).forEach((rule) => {
+      if (rule.kind === 'income') { balances[rule.account_id] = (balances[rule.account_id] ?? 0) + rule.amount; income += rule.amount }
+      if (rule.kind === 'expense') { balances[rule.account_id] = (balances[rule.account_id] ?? 0) - rule.amount; addExpense(rule.name, rule.amount) }
       if (rule.kind === 'transfer' && rule.target_account_id) { balances[rule.account_id] = (balances[rule.account_id] ?? 0) - rule.amount; balances[rule.target_account_id] = (balances[rule.target_account_id] ?? 0) + rule.amount }
     })
+    snapshot.forecastEvents.filter((event) => cashAccountIds.has(event.account_id) && event.event_date.startsWith(monthKey) && event.event_date >= today).forEach((event) => {
+      const signed = event.kind === 'income' ? event.amount : -event.amount
+      balances[event.account_id] = (balances[event.account_id] ?? 0) + signed
+      if (event.kind === 'income') income += event.amount
+      else addExpense(`${event.name} · ${event.event_date.slice(5)}`, event.amount)
+    })
+    snapshot.liabilities.forEach((liability) => {
+      const dueMonth = monthsBetween(liability.start_date, monthEnd)
+      if (dueMonth < 1 || dueMonth > liability.term_months || liability.start_date > monthEnd) return
+      const dueDay = Math.min(Number(liability.start_date.slice(8)), month.getDate())
+      const dueDate = `${monthKey}-${String(dueDay).padStart(2, '0')}`
+      if (dueDate < today) return
+      loanPayments += liability.monthly_payment
+      addExpense(`${liability.name}月繳`, liability.monthly_payment)
+    })
     snapshot.stocks.forEach((stock) => { stockValues[stock.id] = (stockValues[stock.id] ?? 0) * (1 + stock.annual_return_bps / 10000 / 12) })
-    snapshot.investmentPlans.filter((plan) => activeStockIds.has(plan.stock_id) && plan.is_active && month >= new Date(`${plan.start_date}T00:00:00`) && (!plan.end_date || month <= new Date(`${plan.end_date}T23:59:59`))).forEach((plan) => { balances[plan.funding_account_id] = (balances[plan.funding_account_id] ?? 0) - plan.monthly_amount; stockValues[plan.stock_id] = (stockValues[plan.stock_id] ?? 0) + plan.monthly_amount })
-    const cash = Object.values(balances).reduce((sum, value) => sum + value, 0)
+    snapshot.investmentPlans.filter((plan) => activeStockIds.has(plan.stock_id) && plan.is_active && plan.start_date <= monthEnd && (!plan.end_date || plan.end_date >= `${monthKey}-01`)).forEach((plan) => { balances[plan.funding_account_id] = (balances[plan.funding_account_id] ?? 0) - plan.monthly_amount; stockValues[plan.stock_id] = (stockValues[plan.stock_id] ?? 0) + plan.monthly_amount; stockContribution += plan.monthly_amount })
+    cumulativeContribution += stockContribution
+    cumulativeLoanPayments += loanPayments
+    const cash = Object.values(balances).reduce((sum, value) => sum + value, 0) - cumulativeLoanPayments
     const stocks = Object.values(stockValues).reduce((sum, value) => sum + value, 0)
-    const date = month.toISOString().slice(0, 10)
-    const liabilities = snapshot.liabilities.reduce((sum, liability) => sum + liabilityBalance(liability, date), 0)
-    return { label: `${month.getFullYear()}/${String(monthNumber).padStart(2, '0')}`, cash, stocks, liabilities, assets: cash + stocks, netWorth: cash + stocks - liabilities, accounts: { ...balances } }
+    const liabilities = snapshot.liabilities.reduce((sum, liability) => sum + liabilityBalance(liability, monthEnd), 0)
+    const expenses = expenseItems.reduce((sum, item) => sum + item.amount, 0)
+    return { label: `${month.getFullYear()}/${String(monthNumber).padStart(2, '0')}`, income, expenses, expenseItems, monthlyNet: income - expenses - stockContribution, cash, stocks, stockContribution, cumulativeReturn: stocks - initialStockValue - cumulativeContribution, liabilities, netWorth: cash + stocks - liabilities }
   })
 }
