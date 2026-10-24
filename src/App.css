@@ -12,3 +12,5 @@
   .transaction>strong{flex:0 0 auto;font-size:13px}
   .transaction>.text{flex:0 0 auto;padding:5px 3px;font-size:12px}
 }
+
+.transaction-delete{width:100%;min-height:42px;border:1px solid #57373f;border-radius:10px;background:#281a20;color:#ffaaaa;text-align:center}
