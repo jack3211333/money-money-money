@@ -8,6 +8,7 @@ Migrations：
 - `supabase/migrations/202610240002_simplify_stock_valuation.sql`
 - `supabase/migrations/202610240003_liability_payments_and_stock_plan_cleanup.sql`
 - `supabase/migrations/202610240004_forecast_events.sql`
+- `supabase/migrations/202610250001_replace_category_catalog_and_expand_limits.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -22,9 +23,9 @@ Migrations：
 
 所有表均有 UUID `id`、`user_id`、`created_at`、`updated_at`、`deleted_at`。金額使用 `bigint`（TWD 整數元）；所有表均啟用 RLS，政策限定 `auth.uid() = user_id`。
 
-`categories` 只允許大分類與小分類兩層，大小分類必須同一使用者且收支方向相同。資料庫 trigger 限制每個有效大分類最多 3 個有效小分類。預設模板為收入 2 大／6 小與支出 5 大／15 小；只有在帳號完全沒有分類記錄時才會建立。
+`categories` 只允許大分類與小分類兩層，大小分類必須同一使用者且收支方向相同。收入只允許大分類。資料庫 trigger 限制每位使用者最多 20 個支出大分類、15 個收入大分類，且每個支出大分類最多 20 個有效小分類。預設模板為 12 個支出大分類及文件指定的小分類、7 個收入大分類；只有帳號完全沒有分類記錄時才會建立。202610250001 migration 將既有有效分類軟刪除並建立新模板，並將所有交易及固定收支的 `category_id` 設為空值。
 
-`accounts.icon_key` 可為空，既有帳戶不回填圖標。帳戶圖標使用獨立的 `account-icon-1` 至 `account-icon-4` key；圖片為本機靜態資產，並非使用者上傳資料。
+`accounts.icon_key` 可為空，既有帳戶不回填圖標。帳戶圖標使用獨立的 `account-icon-1` 至 `account-icon-13` key；圖片為本機靜態資產，並非使用者上傳資料。
 
 `stocks.valuation_amount` 與 `valuation_date` 必填，代表目前市值基準及其日期。新增股票時以輸入市值和新增日作為基準；編輯時可留空不修正，或輸入一次性修正值並以修正當日作為新基準。估值與推演依年化報酬率計算。202610240002 migration 將既有股票截至套用日的推算市值回填為新基準，再移除 `shares` 與 `total_cost`。
 

@@ -20,6 +20,7 @@
 .subcategory b { flex: 1; }
 .add-subcategory { min-height: 42px; border: 1px dashed #40505f; border-radius: 10px; background: transparent; color: #72e3bc; margin-top: 7px; }
 .add-subcategory:disabled { color: #73808d; border-color: #303944; }
+.category-add:disabled { opacity: .55; cursor: not-allowed; }
 .icon-field { min-width: 0; margin: 0; padding: 0; border: 0; }
 .icon-field legend, .field-label { display: block; margin-bottom: 7px; color: #b8c3cf; font-size: 13px; }
 .icon-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; max-height: 310px; overflow: auto; padding: 2px; }
