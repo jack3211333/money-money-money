@@ -23,6 +23,7 @@
 - 新增 9 張帳戶圖示至選單（合計 13 張）；`202610250001_replace_category_catalog_and_expand_limits.sql` 已於 2026-10-25 套用至 MoneyMoneyMoney Supabase。確認 3 個既有帳號各有 12 個支出大分類、7 個收入大分類、80 個支出小分類及 0 個收入小分類；既有交易與固定收支均已未分類。以交易式測試驗證支出／收入大分類上限、每大分類 20 個小分類上限及禁止收入小分類，測試資料已回滾。`npm run build` 通過。提交 `9bcf1e5` 已推送至 GitHub `main`；Vercel Production 部署已確認為 Ready。
 
 - 新增交易時支出小分類預設收合；有小分類的大分類可展開／收合，必須選小分類。新增「儲值卡」帳戶類型。推演的一次性收支、固定收支與持續投入已移除扣款帳戶關聯；持續投入仍可指定股票，現金、股票市值及淨資產計算已驗證。`202610250002_forecast_without_funding_accounts.sql` 已於 2026-10-25 套用至 MoneyMoneyMoney Supabase。確認推演帳戶欄位移除、儲值卡類型限制、4 張相關資料表 RLS 啟用、2 筆固定收支保留且有效固定轉帳為 0。`npm run build` 通過。提交 `2a59037` 已推送至 GitHub `main`，Vercel Production 部署已確認 Ready。
+- 帳戶類型已移除「股票帳戶」，股票資料改為不指定帳戶；帳戶圖示移除「螢幕擷取畫面 2026-10-24 024532」選項。交易頁新增預設本日的日期篩選與大小分類／備註搜尋，新增交易沿用所選日期；轉帳可選填手續費，依「金融/政府 › 手續費」記為轉出帳戶支出，且編輯與刪除時同步維護。`202610250003_remove_stock_accounts_and_transfer_fees.sql` 已於 2026-10-25 套用至 MoneyMoneyMoney Supabase，確認既有股票帳戶關聯為空、股票帳戶類型為 0、既有手續費資料為 0，股票 `account_id` 可為空，`save_transfer` RPC 已建立。`npm run build` 通過；GitHub `main` 已推送，Vercel Production 部署已確認 Ready。
 
 ## 進行中
 

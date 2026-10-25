@@ -84,18 +84,21 @@ export const financeRepository = {
   saveRecurringRule: (value: Partial<RecurringRule> & Create<RecurringRule>) => save<RecurringRule>('recurring_rules', value),
   saveInvestmentPlan: (value: Partial<InvestmentPlan> & Create<InvestmentPlan>) => save<InvestmentPlan>('investment_plans', value),
   saveForecastEvent: (value: Partial<ForecastEvent> & Create<ForecastEvent>) => save<ForecastEvent>('forecast_events', value),
-  async saveTransfer(input: { transactionDate: string; amount: number; fromAccountId: string; toAccountId: string; note: string; groupId?: string }) {
+  async saveTransfer(input: { transactionDate: string; amount: number; fromAccountId: string; toAccountId: string; note: string; transferFee: number; feeCategoryId: string | null; groupId?: string }) {
     const groupId = input.groupId ?? crypto.randomUUID()
-    const rows = [
-      { transaction_date: input.transactionDate, amount: input.amount, kind: 'transfer_out', account_id: input.fromAccountId, transfer_group_id: groupId, category_id: null, note: input.note },
-      { transaction_date: input.transactionDate, amount: input.amount, kind: 'transfer_in', account_id: input.toAccountId, transfer_group_id: groupId, category_id: null, note: input.note },
-    ]
-    const { error } = await client().from('transactions').insert(rows)
+    const { error } = await client().rpc('save_transfer', {
+      p_group_id: groupId,
+      p_transaction_date: input.transactionDate,
+      p_amount: input.amount,
+      p_from_account_id: input.fromAccountId,
+      p_to_account_id: input.toAccountId,
+      p_note: input.note,
+      p_transfer_fee: input.transferFee,
+      p_fee_category_id: input.feeCategoryId,
+    })
     if (error) throw error
   },
-  async updateTransfer(groupId: string, input: { transactionDate: string; amount: number; fromAccountId: string; toAccountId: string; note: string }) {
-    const { error: deleteError } = await client().from('transactions').update({ deleted_at: new Date().toISOString() }).eq('transfer_group_id', groupId).is('deleted_at', null)
-    if (deleteError) throw deleteError
+  async updateTransfer(groupId: string, input: { transactionDate: string; amount: number; fromAccountId: string; toAccountId: string; note: string; transferFee: number; feeCategoryId: string | null }) {
     await this.saveTransfer({ ...input, groupId })
   },
   async softDelete(table: TableName, id: string) {

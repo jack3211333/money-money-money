@@ -67,7 +67,7 @@ export const stockValue = (stock: Stock, date = dateToday()) => {
 }
 
 export const financialTotals = (snapshot: FinanceSnapshot) => {
-  const cash = snapshot.accounts.filter((account) => account.kind !== 'stock').reduce((sum, account) => sum + accountBalance(account, snapshot.transactions), 0)
+  const cash = snapshot.accounts.reduce((sum, account) => sum + accountBalance(account, snapshot.transactions), 0)
   const stocks = snapshot.stocks.reduce((sum, stock) => sum + stockValue(stock), 0)
   const liabilities = snapshot.liabilities.reduce((sum, liability) => sum + liabilityBalance(liability), 0)
   return { cash, stocks, liabilities, assets: cash + stocks, netWorth: cash + stocks - liabilities }
@@ -78,7 +78,7 @@ export type ForecastMonth = { label: string; income: number; expenses: number; e
 
 export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
   const start = new Date(); start.setDate(1)
-  let projectedCash = snapshot.accounts.filter((account) => account.kind !== 'stock').reduce((sum, account) => sum + accountBalance(account, snapshot.transactions), 0)
+  let projectedCash = snapshot.accounts.reduce((sum, account) => sum + accountBalance(account, snapshot.transactions), 0)
   const stockValues = Object.fromEntries(snapshot.stocks.map((stock) => [stock.id, stockValue(stock)])) as Record<string, number>
   const initialStockValue = Object.values(stockValues).reduce((sum, value) => sum + value, 0)
   let cumulativeContribution = 0

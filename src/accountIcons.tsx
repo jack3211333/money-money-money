@@ -4,7 +4,6 @@ import { Wallet } from 'lucide-react'
 export const accountIconOptions = [
   { key: 'account-icon-1', src: '/account-icons/account-icon-1.png' },
   { key: 'account-icon-2', src: '/account-icons/account-icon-2.png' },
-  { key: 'account-icon-3', src: '/account-icons/account-icon-3.png' },
   { key: 'account-icon-4', src: '/account-icons/account-icon-4.png' },
   { key: 'account-icon-5', src: '/account-icons/account-icon-5.png' },
   { key: 'account-icon-6', src: '/account-icons/account-icon-6.png' },

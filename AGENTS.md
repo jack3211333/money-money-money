@@ -25,7 +25,7 @@
 ## 開發規則
 
 1. 一次完成一個可驗證功能；完成後說明驗證方式。
-2. 每個完成的功能都更新 `docs/PROGRESS.md` 與必要的 `docs/DECISIONS.md`、`docs/SCHEMA.md`，然後建立清楚的 Git commit。
+2. 每個完成的功能，必須將程式、migration 與 `docs/PROGRESS.md` 及必要的 `docs/DECISIONS.md`、`docs/SCHEMA.md` 一起放在同一個清楚的 Git commit；不得把同一功能的程式與進度文件拆成不同 commit，也不得另建文件專用 commit 記錄該功能或部署結果。完成並更新相關文件後再一次提交；部署狀態在該次工作中確認，不為補記狀態另拆版本。
 3. 金鑰只可放本機 `.env` 與部署平台環境變數，絕不可放入程式碼或 Git；`.env` 必須被忽略。
 4. 所有資料庫變更必須新增 migration SQL，絕不只在 Supabase 後台手改；每次 migration 後同步更新 `docs/SCHEMA.md`。
 5. 所有使用者資料均須有 `user_id`、時間欄位與軟刪除欄位，並受 RLS 保護。
