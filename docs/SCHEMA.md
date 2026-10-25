@@ -11,6 +11,7 @@ Migrations：
 - `supabase/migrations/202610250001_replace_category_catalog_and_expand_limits.sql`
 - `supabase/migrations/202610250002_forecast_without_funding_accounts.sql`
 - `supabase/migrations/202610250003_remove_stock_accounts_and_transfer_fees.sql`
+- `supabase/migrations/202610250004_personalize_jack_category_icons.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -32,6 +33,8 @@ Migrations：
 `accounts.kind` 允許 `cash`、`bank` 與 `stored_value`（儲值卡）；儲值卡與現金、銀行一樣計入總現金與淨資產。`202610250002` migration 移除 `recurring_rules.account_id`、`target_account_id`、`investment_plans.funding_account_id` 與 `forecast_events.account_id`。既有固定轉帳先軟刪除；有效固定設定只允許收入與支出。推演收支直接加減總現金，股票持續投入減少總現金並增加所選股票市值。`202610250003` 移除股票帳戶類型，並清空舊股票的帳戶關聯。
 
 `transactions.is_transfer_fee` 預設為 `false`。有手續費的轉帳使用同一個 `transfer_group_id` 寫入一筆 `kind='expense'`、`is_transfer_fee=true` 的支出，帳戶為轉出帳戶，分類為「金融/政府 › 手續費」。手續費為 0 時不建立該支出資料；既有轉帳因沒有手續費資料列而視為 0。`save_transfer` RPC 在單一資料庫交易中軟刪除舊群組資料並重建轉帳與可選手續費，且確認帳戶、分類及群組屬於目前使用者。
+
+`202610250004` 只更新 `jack3211333@gmail.com` 的有效分類外觀設定：依分類名稱寫入 Lucide `icon_key`，並把每個支出大分類及其小分類設為同一 `color`。未變更分類名稱、層級、交易關聯或其他使用者資料。
 
 `stocks.valuation_amount` 與 `valuation_date` 必填，代表目前市值基準及其日期。新增股票時以輸入市值和新增日作為基準；編輯時可留空不修正，或輸入一次性修正值並以修正當日作為新基準。估值與推演依年化報酬率計算。202610240002 migration 將既有股票截至套用日的推算市值回填為新基準，再移除 `shares` 與 `total_cost`。
 

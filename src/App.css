@@ -14,7 +14,7 @@
 }
 
 .transaction-delete{width:100%;min-height:42px;border:1px solid #57373f;border-radius:10px;background:#281a20;color:#ffaaaa;text-align:center}
-.transaction-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:10px}
+.transaction-range{display:grid;gap:10px}.range-actions{display:flex;gap:8px}.range-actions .secondary{padding:7px 12px}.selected-range{background:#19352f;color:#8af0cc;outline:1px solid #72e3bc}.transaction-metrics{grid-template-columns:repeat(3,1fr)}.transaction-metrics .metric{padding:12px}.transaction-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .transaction-filters label{display:grid;gap:6px;color:#9cabb9;font-size:12px}
 .transaction-filters input{min-width:0;width:100%;padding:10px;border:1px solid #354351;border-radius:10px;background:#11161d;color:#edf4f8}
-@media(max-width:420px){.transaction-filters{grid-template-columns:1fr}}
+@media(max-width:620px){.transaction-filters{grid-template-columns:1fr 1fr}.transaction-metrics{gap:7px}.transaction-metrics .metric{padding:10px}.transaction-metrics .metric b{font-size:14px}}@media(max-width:420px){.transaction-filters{grid-template-columns:1fr}}

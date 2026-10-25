@@ -1,8 +1,8 @@
 /* eslint-disable react/only-export-components -- the shared icon registry and renderer intentionally live together */
 import { createElement } from 'react'
 import {
-  Baby, BadgeDollarSign, Banknote, Bike, BookOpen, BriefcaseBusiness, Building2, Bus, CakeSlice,
-  Car, CircleDollarSign, CircleEllipsis, Coffee, Coins, Dumbbell, Film, Fuel, Gamepad2, Gift,
+  Apple, Baby, BadgeDollarSign, Banknote, Beer, Bike, BookOpen, BriefcaseBusiness, Building2, Bus, CakeSlice,
+  Car, Cigarette, CircleDollarSign, CircleEllipsis, Coffee, Coins, CreditCard, Dumbbell, Film, Fuel, Gamepad2, Gift,
   GraduationCap, HandCoins, HeartPulse, House, HousePlug, Landmark, Laptop, MonitorSmartphone,
   Music, PartyPopper, PawPrint, PiggyBank, Pill, Plane, ReceiptText, RotateCcw, Scissors,
   ShieldCheck, Shirt, ShoppingBag, ShoppingBasket, Smartphone, Soup, Sparkles, Stethoscope,
@@ -19,6 +19,8 @@ export const categoryIconOptions: CategoryIconOption[] = [
   { key: 'soup', label: '點心', Icon: Soup },
   { key: 'coffee', label: '咖啡', Icon: Coffee },
   { key: 'cake-slice', label: '甜點', Icon: CakeSlice },
+  { key: 'apple', label: '水果', Icon: Apple },
+  { key: 'beer', label: '酒類', Icon: Beer },
   { key: 'car', label: '汽車', Icon: Car },
   { key: 'bus', label: '公車', Icon: Bus },
   { key: 'train-front', label: '火車', Icon: TrainFront },
@@ -59,6 +61,8 @@ export const categoryIconOptions: CategoryIconOption[] = [
   { key: 'sparkles', label: '獎金', Icon: Sparkles },
   { key: 'coins', label: '零用', Icon: Coins },
   { key: 'wallet-cards', label: '錢包', Icon: WalletCards },
+  { key: 'credit-card', label: '信用卡', Icon: CreditCard },
+  { key: 'cigarette', label: '菸', Icon: Cigarette },
   { key: 'trending-up', label: '投資', Icon: TrendingUp },
   { key: 'piggy-bank', label: '儲蓄', Icon: PiggyBank },
   { key: 'badge-dollar-sign', label: '收入', Icon: BadgeDollarSign },

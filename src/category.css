@@ -24,8 +24,7 @@
 .icon-field { min-width: 0; margin: 0; padding: 0; border: 0; }
 .icon-field legend, .field-label { display: block; margin-bottom: 7px; color: #b8c3cf; font-size: 13px; }
 .icon-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; max-height: 310px; overflow: auto; padding: 2px; }
-.icon-choice { min-height: 66px; display: grid; place-items: center; align-content: center; gap: 4px; border: 1px solid #354351; border-radius: 11px; background: #11161d; color: #aebbc6; }
-.icon-choice small { font-size: 10px; }
+.icon-choice { min-height: 52px; display: grid; place-items: center; border: 1px solid #354351; border-radius: 11px; background: #11161d; color: #aebbc6; }
 .icon-choice.selected { outline: 2px solid #72e3bc; border-color: transparent; background: #19352f; color: #8af0cc; }
 .category-picker { position: relative; display: block; }
 .category-picker-trigger { width: 100%; min-height: 46px; display: flex; align-items: center; gap: 9px; padding: 7px 10px; border: 1px solid #354351; border-radius: 10px; background: #11161d; color: #edf4f8; text-align: left; }
