@@ -45,8 +45,9 @@
   .subcategories { padding-left: 11px; }
   .category-group > header { flex-wrap: wrap; }
   .category-group > header > span:nth-child(2) { min-width: 120px; }
-  .transaction { flex-wrap: wrap; }
-  .transaction > span:nth-child(2) { min-width: 150px; }
-  .transaction > strong { margin-left: 44px; }
+  .category-picker-trigger > b, .category-picker-trigger > span:nth-child(2) { min-width: 0; }
+  .transaction { flex-wrap: nowrap; }
+  .transaction > span:nth-child(2) { min-width: 0; }
+  .transaction > strong { margin-left: auto; }
   .category-option-group { grid-template-columns: 1fr; }
 }
