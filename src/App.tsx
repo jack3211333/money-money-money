@@ -105,7 +105,7 @@ function Section({ title, action, click, children }: { title: string; action?: s
 function Dialog({ title, close, children }: { title: string; close: () => void; children: ReactNode }) { return <div className="backdrop"><section className="dialog"><header><h2>{title}</h2><button className="icon" onClick={close}>×</button></header>{children}</section></div> }
 function useSave(done: () => Promise<void>) { const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const save = async (work: () => Promise<unknown>) => { try { setBusy(true); await work(); await done() } catch (cause) { setError(cause instanceof Error ? cause.message : '儲存失敗') } finally { setBusy(false) } }; return { busy, error, save } }
 function Footer({ close, busy }: { close: () => void; busy: boolean }) { return <footer className="footer"><button type="button" className="secondary" onClick={close}>取消</button><button className="primary" disabled={busy}>{busy ? '儲存中…' : '儲存'}</button></footer> }
-function Accounts({ data, value, change, stockOnly = false, label = '帳戶' }: { data: FinanceSnapshot; value: string; change: (value: string) => void; stockOnly?: boolean; label?: string }) {
+function Accounts({ data, value, change, stockOnly = false, label = '帳戶', showBalances = false }: { data: FinanceSnapshot; value: string; change: (value: string) => void; stockOnly?: boolean; label?: string; showBalances?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const options = data.accounts.filter((account) => !account.is_archived && (!stockOnly || account.kind === 'stock'))
   const selected = options.find((account) => account.id === value)
@@ -117,7 +117,7 @@ function Accounts({ data, value, change, stockOnly = false, label = '帳戶' }: 
     </button>
     {expanded && <div className="account-picker-panel" role="listbox" aria-label={label} onKeyDown={(event) => { if (event.key === 'Escape') setExpanded(false) }}>
       {options.map((account) => <button type="button" role="option" aria-selected={value === account.id} className={value === account.id ? 'account-picker-option selected' : 'account-picker-option'} key={account.id} onClick={() => { change(account.id); setExpanded(false) }}>
-        <AccountIcon iconKey={account.icon_key} /><span><b>{account.name}</b><small>{accountKinds[account.kind]}</small></span>
+        <AccountIcon iconKey={account.icon_key} /><span><b>{account.name}</b><small>{accountKinds[account.kind]}{showBalances ? ` · 目前餘額 ${twd(accountBalance(account, data.transactions))}` : ''}</small></span>
       </button>)}
       {!options.length && <span className="muted">沒有可用帳戶</span>}
     </div>}
@@ -183,8 +183,8 @@ function TransactionDialog({ data, item, close, done }: { data: FinanceSnapshot;
     <div className="tabs">{[['expense', '支出'], ['income', '收入'], ['transfer', '轉帳']].map(([value, label]) => <button type="button" className={kind === value ? 'selected' : ''} onClick={() => changeKind(value)} key={value}>{label}</button>)}</div>
     <label>金額（TWD）<input autoFocus required inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ''))} /></label>
     <label>日期<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-    <Accounts data={data} value={account} change={setAccount} label={kind === 'transfer' ? '轉出帳戶' : '帳戶'} />
-    {kind === 'transfer' ? <><Accounts data={data} value={target} change={setTarget} label="轉入帳戶" /><label>手續費（TWD，可不填）<input inputMode="numeric" value={transferFee} onChange={(event) => setTransferFee(event.target.value.replace(/[^0-9]/g, ''))} placeholder="0" /></label></> : <CategoryPicker key={kind} categories={data.categories} direction={kind as CategoryDirection} value={category} change={setCategory} collapseChildren />}
+    <Accounts data={data} value={account} change={setAccount} label={kind === 'transfer' ? '轉出帳戶' : '帳戶'} showBalances={!item?.id} />
+    {kind === 'transfer' ? <><Accounts data={data} value={target} change={setTarget} label="轉入帳戶" showBalances={!item?.id} /><label>手續費（TWD，可不填）<input inputMode="numeric" value={transferFee} onChange={(event) => setTransferFee(event.target.value.replace(/[^0-9]/g, ''))} placeholder="0" /></label></> : <CategoryPicker key={kind} categories={data.categories} direction={kind as CategoryDirection} value={category} change={setCategory} collapseChildren />}
     <label>備註（可不填）<input value={note} onChange={(event) => setNote(event.target.value)} /></label>
     {error && <p className="notice error">{error}</p>}{item?.id && <button type="button" className="transaction-delete" onClick={() => void remove()}>刪除這筆交易</button>}<Footer close={close} busy={busy} />
   </form></Dialog>
