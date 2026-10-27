@@ -1,6 +1,8 @@
-# Money Money Money
+# Money Money Money 1.0
 
-手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入。
+**正式版 1.0 已完成。** 這是一個手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入；所有功能均已驗收，目前沒有排定的後續版本計畫。
+
+專案決策沿革見 [`docs/DECISIONS.md`](docs/DECISIONS.md)，資料庫結構見 [`docs/SCHEMA.md`](docs/SCHEMA.md)。
 
 ## 本機啟動
 
@@ -10,13 +12,11 @@
 4. 執行 `npm run dev`，再開啟畫面顯示的網址。
 5. 正式檢查可執行 `npm run build`。
 
-若要測試帳戶圖標儲存，先在目前 `.env` 指向的 Supabase 專案依序套用尚未執行的 migration，包含 `supabase/migrations/202610240001_account_icons.sql`；現有帳戶會維持未選擇圖標。
-
-## 建立 Supabase（只需一次）
+## 設定 Supabase（新環境）
 
 1. 登入 Supabase，按 **New project**，選擇組織、命名並設定資料庫密碼，按 **Create new project**。
 2. 專案完成後，到左側 **SQL Editor**，按 **New query**。
-3. 依檔名順序開啟 `supabase/migrations/` 下的 SQL，完整複製內容貼進編輯器並按 **Run**。這會建立資料表、RLS 與大小分類，請勿改用後台手建表。
+3. 依檔名順序套用 `supabase/migrations/` 下的 SQL。這會建立資料表、RLS 與分類；請勿改用後台手建表。
 4. 到 **Authentication → URL Configuration**，在 **Site URL** 填本機網址（通常是 `http://localhost:5173`）；部署後再加入 Vercel 網址作為 Redirect URL。
 5. 到 **Project Settings → API**，複製 **Project URL** 和 **Publishable key**。將它們只填入本機 `.env`：
 
@@ -29,14 +29,14 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 
 密碼登入不會每次寄信；首次註冊與忘記密碼的 Email 流程仍需寄信服務。若目前所有裝置都已登出，可在登入頁點「尚未設定密碼？寄一次登入連結」，待寄信額度恢復後完成一次登入，再設定密碼。
 
-## 驗證清單
+## 1.0 功能範圍
 
-1. 在設定新增「現金」、「銀行」或「儲值卡」；確認帳戶可選擇、更換或清除圖標，並確認收入、支出大小分類可管理。
-2. 新增收入、支出與轉帳；交易頁可依日期篩選並搜尋大小分類或備註，轉帳可選填手續費，總覽帳戶餘額正確。
-3. 新增一筆貸款與年利率為 0 的零卡分期，確認負債頁與推演頁顯示剩餘餘額。
-4. 新增股票，填目前市值與年化報酬率及選填的市值修正，不需建立股票帳戶；確認總覽淨資產與推演有變化。
-5. 新增固定收支與持續投入，確認推演表每月月底顯示資產、現金、股票、負債、淨資產。這些設定不可改變真實交易。
-6. 在設定下載 CSV，用 Excel 開啟，確認中文沒有亂碼。
+- 帳戶、階層分類、收入／支出／轉帳、日期搜尋與 CSV 匯出。
+- 報表、負債、股票資產、固定收支、持續投入與 12 個月財務推演。
+- 可安裝 PWA、離線 app shell、離線新增收入／支出、恢復連線同步及 App 內失敗通知。
+- Email＋密碼登入、Supabase 跨裝置同步與 RLS 資料隔離。
+
+1.0 驗收已完成，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
 
 ## GitHub 與 Vercel 部署
 
@@ -46,7 +46,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 4. 登入 Vercel，按 **Add New → Project**，選取剛建立的 GitHub repository，按 **Import**。
 5. 在 Vercel 的 **Environment Variables** 新增與 `.env` 相同的兩個名稱與值；只填 Project URL 和 Publishable key，絕不填 service role key。
 6. 按 **Deploy**。完成後回 Supabase 的 **Authentication → URL Configuration**，將 Vercel 網址加到 Redirect URLs，並把它設為 Site URL。
-7. 之後每次推送 GitHub，Vercel 都會自動部署。
+7. 之後推送 GitHub，Vercel 會自動部署。
 
 ## 備份
 

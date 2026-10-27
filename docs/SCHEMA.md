@@ -1,5 +1,7 @@
 # 資料表結構
 
+此文件記錄 Money Money Money 1.0 的 Supabase schema 與 migration 沿革。1.0 已完成；後續僅在有新需求時規劃資料庫變更。
+
 Migrations：
 
 > 2026-10-28 離線交易功能沒有資料庫 schema 或 migration 變更；快照、待同步交易與失敗通知僅儲存在各裝置 IndexedDB。
