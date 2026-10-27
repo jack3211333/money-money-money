@@ -33,6 +33,10 @@ const save = async <T extends { id: string }>(table: TableName, value: Partial<T
 }
 
 export const authRepository = {
+  async cachedUser(): Promise<User | null> {
+    const { data } = await client().auth.getSession()
+    return data.session?.user ?? null
+  },
   async currentUser(): Promise<User | null> {
     const { data, error } = await client().auth.getUser()
     if (error?.name === 'AuthSessionMissingError') return null
@@ -58,6 +62,11 @@ export const authRepository = {
     const { error } = await client().auth.signOut()
     if (error) throw error
   },
+  async refreshSession() {
+    const { data, error } = await client().auth.refreshSession()
+    if (error) throw error
+    return data.session
+  },
   onAuthChange(callback: () => void) {
     return client().auth.onAuthStateChange(() => callback())
   },
@@ -79,6 +88,20 @@ export const financeRepository = {
   saveAccount: (value: Partial<Account> & Create<Account>) => save<Account>('accounts', value),
   saveCategory: (value: Partial<Category> & Create<Category>) => save<Category>('categories', value),
   saveTransaction: (value: Partial<Transaction> & Create<Transaction>) => save<Transaction>('transactions', value),
+  async insertOfflineTransaction(value: Transaction) {
+    const { error } = await client().from('transactions').insert({
+      id: value.id,
+      transaction_date: value.transaction_date,
+      amount: value.amount,
+      kind: value.kind,
+      account_id: value.account_id,
+      category_id: value.category_id,
+      transfer_group_id: null,
+      is_transfer_fee: false,
+      note: value.note,
+    } as never)
+    if (error) throw error
+  },
   saveLiability: (value: Partial<Liability> & Create<Liability>) => save<Liability>('liabilities', value),
   saveStock: (value: Partial<Stock> & Create<Stock>) => save<Stock>('stocks', value),
   saveRecurringRule: (value: Partial<RecurringRule> & Create<RecurringRule>) => save<RecurringRule>('recurring_rules', value),

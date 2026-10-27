@@ -2,6 +2,8 @@
 
 Migrations：
 
+> 2026-10-28 離線交易功能沒有資料庫 schema 或 migration 變更；快照、待同步交易與失敗通知僅儲存在各裝置 IndexedDB。
+
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
 - `supabase/migrations/202610240001_account_icons.sql`
