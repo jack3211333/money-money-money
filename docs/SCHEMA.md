@@ -6,6 +6,7 @@ Migrations：
 
 > 2026-10-28 離線交易功能沒有資料庫 schema 或 migration 變更；快照、待同步交易與失敗通知僅儲存在各裝置 IndexedDB。
 > 2026-10-28 `202610280001_quick_transactions.sql`：已套用；新增使用者隔離的快速交易選項資料表及索引，並確認 RLS、政策與 trigger 已建立。
+> 2026-10-28 20:12（台北時間）`202610280002_account_sort_order.sql`：已套用；為帳戶新增 `sort_order`，以既有名稱順序初始化並新增使用者排序索引。已查驗欄位、索引存在，且 accounts RLS 啟用、擁有者政策仍有效。
 
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
@@ -18,10 +19,11 @@ Migrations：
 - `supabase/migrations/202610250003_remove_stock_accounts_and_transfer_fees.sql`
 - `supabase/migrations/202610250004_personalize_jack_category_icons.sql`
 - `supabase/migrations/202610280001_quick_transactions.sql`
+- `supabase/migrations/202610280002_account_sort_order.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
-| `accounts` | 現金、銀行、儲值卡；起始餘額、封存狀態與可為空的 `icon_key`。 |
+| `accounts` | 現金、銀行、儲值卡；起始餘額、封存狀態、可為空的 `icon_key` 與使用者自訂 `sort_order`。 |
 | `categories` | 兩層收入／支出分類；`parent_id` 為空時是大分類，否則是小分類；`icon_key` 儲存圖示。 |
 | `transactions` | 收入、支出及成對轉帳；轉帳以 `transfer_group_id` 連結。轉帳手續費另存同群組、帶有 `is_transfer_fee` 標記的支出資料。 |
 | `quick_transactions` | 使用者自訂的收入／支出預填選項；保存金額、帳戶、可選分類與備註，不會建立帳本交易。 |
@@ -36,6 +38,8 @@ Migrations：
 `categories` 只允許大分類與小分類兩層，大小分類必須同一使用者且收支方向相同。收入只允許大分類。資料庫 trigger 限制每位使用者最多 20 個支出大分類、15 個收入大分類，且每個支出大分類最多 20 個有效小分類。預設模板為 12 個支出大分類及文件指定的小分類、7 個收入大分類；只有帳號完全沒有分類記錄時才會建立。202610250001 migration 將既有有效分類軟刪除並建立新模板，並將所有交易及固定收支的 `category_id` 設為空值。
 
 `accounts.icon_key` 可為空，既有帳戶不回填圖標。帳戶圖標使用獨立的 `account-icon-1` 至 `account-icon-13` key；圖片為本機靜態資產，並非使用者上傳資料。
+
+`accounts.sort_order` 為使用者專屬整數順序，總覽、設定與帳戶選單共用此順序；設定頁可排序封存帳戶，但封存帳戶不出現在交易選單。`202610280002` 依既有名稱升冪順序初始化，新增帳戶由 Repository 指派目前末端的下一個值。
 
 `accounts.kind` 允許 `cash`、`bank` 與 `stored_value`（儲值卡）；儲值卡與現金、銀行一樣計入總現金與淨資產。`202610250002` migration 移除 `recurring_rules.account_id`、`target_account_id`、`investment_plans.funding_account_id` 與 `forecast_events.account_id`。既有固定轉帳先軟刪除；有效固定設定只允許收入與支出。推演收支直接加減總現金，股票持續投入減少總現金並增加所選股票市值。`202610250003` 移除股票帳戶類型，並清空舊股票的帳戶關聯。
 

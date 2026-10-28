@@ -78,7 +78,7 @@ export const financeRepository = {
     const { error: categorySeedError } = await client().rpc('ensure_default_categories')
     if (categorySeedError) throw categorySeedError
     const [accounts, categories, transactions, quickTransactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents] = await Promise.all([
-      active<Account>('accounts', 'name'), all<Category>('categories', 'sort_order'), active<Transaction>('transactions', 'transaction_date'),
+      active<Account>('accounts', 'sort_order'), all<Category>('categories', 'sort_order'), active<Transaction>('transactions', 'transaction_date'),
       active<QuickTransaction>('quick_transactions', 'created_at'),
       active<Liability>('liabilities', 'start_date'), active<Stock>('stocks', 'ticker'), active<RecurringRule>('recurring_rules', 'name'),
       active<InvestmentPlan>('investment_plans', 'name'),
@@ -86,7 +86,12 @@ export const financeRepository = {
     ])
     return { accounts, categories, transactions, quickTransactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents }
   },
-  saveAccount: (value: Partial<Account> & Create<Account>) => save<Account>('accounts', value),
+  async saveAccount(value: Partial<Account> & Create<Account>) {
+    if (value.id || value.sort_order !== undefined) return save<Account>('accounts', value)
+    const { data, error } = await client().from('accounts').select('sort_order').is('deleted_at', null).order('sort_order', { ascending: false }).limit(1)
+    if (error) throw error
+    return save<Account>('accounts', { ...value, sort_order: (data?.[0]?.sort_order ?? -1) + 1 })
+  },
   saveCategory: (value: Partial<Category> & Create<Category>) => save<Category>('categories', value),
   saveTransaction: (value: Partial<Transaction> & Create<Transaction>) => save<Transaction>('transactions', value),
   saveQuickTransaction: (value: Partial<QuickTransaction> & Create<QuickTransaction>) => save<QuickTransaction>('quick_transactions', value),
