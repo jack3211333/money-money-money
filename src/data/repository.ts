@@ -1,8 +1,8 @@
 import type { User } from '@supabase/supabase-js'
-import { emptySnapshot, type Account, type Category, type FinanceSnapshot, type ForecastEvent, type InvestmentPlan, type Liability, type RecurringRule, type Stock, type Transaction } from './types'
+import { emptySnapshot, type Account, type Category, type FinanceSnapshot, type ForecastEvent, type InvestmentPlan, type Liability, type QuickTransaction, type RecurringRule, type Stock, type Transaction } from './types'
 import { supabase } from './supabase'
 
-type TableName = 'accounts' | 'categories' | 'transactions' | 'liabilities' | 'stocks' | 'recurring_rules' | 'investment_plans' | 'forecast_events'
+type TableName = 'accounts' | 'categories' | 'transactions' | 'quick_transactions' | 'liabilities' | 'stocks' | 'recurring_rules' | 'investment_plans' | 'forecast_events'
 type Create<T> = Omit<T, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'deleted_at'>
 
 const client = () => {
@@ -77,17 +77,19 @@ export const financeRepository = {
     if (!supabase) return emptySnapshot
     const { error: categorySeedError } = await client().rpc('ensure_default_categories')
     if (categorySeedError) throw categorySeedError
-    const [accounts, categories, transactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents] = await Promise.all([
+    const [accounts, categories, transactions, quickTransactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents] = await Promise.all([
       active<Account>('accounts', 'name'), all<Category>('categories', 'sort_order'), active<Transaction>('transactions', 'transaction_date'),
+      active<QuickTransaction>('quick_transactions', 'created_at'),
       active<Liability>('liabilities', 'start_date'), active<Stock>('stocks', 'ticker'), active<RecurringRule>('recurring_rules', 'name'),
       active<InvestmentPlan>('investment_plans', 'name'),
       active<ForecastEvent>('forecast_events', 'event_date'),
     ])
-    return { accounts, categories, transactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents }
+    return { accounts, categories, transactions, quickTransactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents }
   },
   saveAccount: (value: Partial<Account> & Create<Account>) => save<Account>('accounts', value),
   saveCategory: (value: Partial<Category> & Create<Category>) => save<Category>('categories', value),
   saveTransaction: (value: Partial<Transaction> & Create<Transaction>) => save<Transaction>('transactions', value),
+  saveQuickTransaction: (value: Partial<QuickTransaction> & Create<QuickTransaction>) => save<QuickTransaction>('quick_transactions', value),
   async insertOfflineTransaction(value: Transaction) {
     const { error } = await client().from('transactions').insert({
       id: value.id,

@@ -5,6 +5,7 @@
 Migrations：
 
 > 2026-10-28 離線交易功能沒有資料庫 schema 或 migration 變更；快照、待同步交易與失敗通知僅儲存在各裝置 IndexedDB。
+> 2026-10-28 `202610280001_quick_transactions.sql`：已套用；新增使用者隔離的快速交易選項資料表及索引，並確認 RLS、政策與 trigger 已建立。
 
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
@@ -16,12 +17,14 @@ Migrations：
 - `supabase/migrations/202610250002_forecast_without_funding_accounts.sql`
 - `supabase/migrations/202610250003_remove_stock_accounts_and_transfer_fees.sql`
 - `supabase/migrations/202610250004_personalize_jack_category_icons.sql`
+- `supabase/migrations/202610280001_quick_transactions.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
 | `accounts` | 現金、銀行、儲值卡；起始餘額、封存狀態與可為空的 `icon_key`。 |
 | `categories` | 兩層收入／支出分類；`parent_id` 為空時是大分類，否則是小分類；`icon_key` 儲存圖示。 |
 | `transactions` | 收入、支出及成對轉帳；轉帳以 `transfer_group_id` 連結。轉帳手續費另存同群組、帶有 `is_transfer_fee` 標記的支出資料。 |
+| `quick_transactions` | 使用者自訂的收入／支出預填選項；保存金額、帳戶、可選分類與備註，不會建立帳本交易。 |
 | `liabilities` | 貸款或分期負債：本金、年利率、整數元月繳款、期數、起始日。分期使用 0% 利率及自訂月繳款。 |
 | `stocks` | 可為空的舊帳戶關聯、代號、目前市值基準日期與年化報酬率；不記錄股數或總成本。股票帳戶關聯已移除，既有股票的 `account_id` 清空。 |
 | `recurring_rules` | 僅供推演的固定收入或支出；保留可選分類，不分配至帳戶。 |
@@ -45,3 +48,5 @@ Migrations：
 `liabilities.monthly_payment` 必填且為正整數 TWD。貸款年利率與月繳款按本息平均攤還公式互算；既有月繳款由原年利率回填。分期不顯示年利率，固定使用 0%；migration 將既有分期利率設為 0%，月繳款回填為本金除以期數的整數元。刪除股票時，資料庫 trigger 會軟刪除同一使用者對應的有效 `investment_plans`；推演亦只採用仍有效股票的計畫。
 
 `forecast_events` 含 `name`、`kind`（income／expense）、`amount` 與 `event_date`。指定日期落在推演的未來 12 個月且未早於當日時，只計入該月一次；不建立真實交易。每筆資料具 `user_id`、時間欄位、軟刪除與 RLS。
+
+`quick_transactions` 僅允許 `income`／`expense`，金額為正整數，關聯帳戶與可選分類，並保存備註。資料以 `user_id`、建立／更新時間與 `deleted_at` 管理，RLS 限制使用者僅能存取自己的快速選項。選取選項只會預填交易表單；使用者按儲存前不會建立交易。202610280001 migration 新增此表與有效資料索引。
