@@ -1,6 +1,6 @@
-# Money Money Money 1.0
+# Money Money Money 1.01
 
-**正式版 1.0 已完成。** 這是一個手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入；所有功能均已驗收，目前沒有排定的後續版本計畫。
+**正式版 1.01 已完成。** 這是一個手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入；所有功能均已驗收，目前沒有排定的後續版本計畫。
 
 專案決策沿革見 [`docs/DECISIONS.md`](docs/DECISIONS.md)，資料庫結構見 [`docs/SCHEMA.md`](docs/SCHEMA.md)。
 
@@ -29,14 +29,14 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 
 密碼登入不會每次寄信；首次註冊與忘記密碼的 Email 流程仍需寄信服務。若目前所有裝置都已登出，可在登入頁點「尚未設定密碼？寄一次登入連結」，待寄信額度恢復後完成一次登入，再設定密碼。
 
-## 1.0 功能範圍
+## 功能範圍
 
 - 帳戶、階層分類、收入／支出／轉帳、日期搜尋與 CSV 匯出。
 - 報表、負債、股票資產、固定收支、持續投入與 12 個月財務推演。
 - 可安裝 PWA、離線 app shell、離線新增收入／支出、恢復連線同步及 App 內失敗通知。
 - Email＋密碼登入、Supabase 跨裝置同步與 RLS 資料隔離。
 
-1.0 驗收已完成，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
+1.01 驗收已完成，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
 
 ## GitHub 與 Vercel 部署
 

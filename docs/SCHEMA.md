@@ -1,6 +1,6 @@
 # 資料表結構
 
-此文件記錄 Money Money Money 1.0 的 Supabase schema 與 migration 沿革。1.0 已完成；後續僅在有新需求時規劃資料庫變更。
+此文件記錄 Money Money Money 1.01 的 Supabase schema 與 migration 沿革。後續僅在有新需求時規劃資料庫變更。
 
 Migrations：
 
