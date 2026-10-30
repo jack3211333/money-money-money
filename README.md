@@ -34,7 +34,14 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 - 帳戶、階層分類、收入／支出／轉帳、日期搜尋與 CSV 匯出。
 - 報表、負債、股票資產、固定收支、持續投入與 12 個月財務推演。
 - 可安裝 PWA、離線 app shell、離線新增收入／支出、恢復連線同步及 App 內失敗通知。
+- iPhone 可用新增交易網址捷徑，或從 Safari 的 `/quick-add.html` 加入獨立「快速記帳」主畫面 App。
 - Email＋密碼登入、Supabase 跨裝置同步與 RLS 資料隔離。
+
+### iPhone 快速記帳
+
+- 捷徑 App：新增捷徑，依序加入「URL」與「打開 URL」動作；URL 填入 `https://你的正式網站網址/?action=new-transaction`，再將捷徑加入主畫面。
+- 獨立主畫面 App：在 Safari 開啟 `https://你的正式網站網址/quick-add.html`，從分享選單選「加入主畫面」。這個圖示會以「快速記帳」名稱安裝，開啟後直接進入新增交易表單。
+- 若尚未登入，先登入後會接續顯示表單。表單不會預填或自動儲存交易。
 
 1.01 驗收已完成，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
 

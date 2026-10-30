@@ -1,5 +1,5 @@
-const CACHE = 'money-money-money-v3'
-const APP_SHELL = ['/manifest.webmanifest', '/favicon.svg']
+const CACHE = 'money-money-money-v4'
+const APP_SHELL = ['/manifest.webmanifest', '/quick-add.webmanifest', '/favicon.svg']
 const timeout = () => new Promise((_, reject) => setTimeout(() => reject(new Error('network timeout')), 4000))
 
 self.addEventListener('install', (event) => {
