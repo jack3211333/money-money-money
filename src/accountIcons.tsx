@@ -14,6 +14,7 @@ export const accountIconOptions = [
   { key: 'account-icon-11', src: '/account-icons/account-icon-11.png' },
   { key: 'account-icon-12', src: '/account-icons/account-icon-12.png' },
   { key: 'account-icon-13', src: '/account-icons/account-icon-13.png' },
+  { key: 'account-icon-14', src: '/account-icons/account-icon-14.png' },
 ]
 
 const iconMap = new Map(accountIconOptions.map(({ key, src }) => [key, src]))
