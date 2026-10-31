@@ -470,7 +470,60 @@ function LiabilityDialog({ item, close, done }: { item: Liability | null; close:
     {error && <p className="notice error">{error}</p>}<Footer close={close} busy={busy} />
   </form></Dialog>
 }
-function StockDialog({ item, close, done }: { item: Stock | null; close: () => void; done: () => Promise<void> }) { const [ticker, setTicker] = useState(item?.ticker ?? ''); const [marketValue, setMarketValue] = useState(''); const [correction, setCorrection] = useState(''); const [shares, setShares] = useState(item?.shares == null ? '' : String(item.shares)); const [annual, setAnnual] = useState(String((item?.annual_return_bps ?? 0) / 100)); const { busy, error, save } = useSave(done); return <Dialog title={item ? '編輯股票' : '新增股票'} close={close}><form className="form" onSubmit={(e) => { e.preventDefault(); void save(() => { if (!item && marketValue === '') throw new Error('請輸入目前市值。'); if (shares !== '' && (!Number.isSafeInteger(Number(shares)) || Number(shares) < 0)) throw new Error('股數必須是 0 或以上的整數。'); const today = dateToday(); return financeRepository.saveStock({ ...(item ? { id: item.id } : {}), account_id: null, ticker: ticker.toUpperCase(), shares: shares === '' ? null : Number(shares), annual_return_bps: Math.round(Number(annual) * 100), valuation_amount: item ? (correction === '' ? item.valuation_amount : Number(correction)) : Number(marketValue), valuation_date: item ? (correction === '' ? item.valuation_date : today) : today }) }) }}><label>股票代號<input autoFocus required value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="0050" /></label><label>股數（選填）<input type="number" min="0" step="1" inputMode="numeric" value={shares} onChange={(e) => setShares(e.target.value)} placeholder="留空則不更新股價" /></label>{item ? <><p className="muted">目前推算市值：{twd(stockValue(item))}</p><label>一次性修正市值（TWD，可不填）<input inputMode="numeric" value={correction} onChange={(e) => setCorrection(e.target.value.replace(/[^0-9]/g, ''))} placeholder="留空則不修正" /></label>{correction !== '' && <small>儲存後以今天的日期作為新的推算基準。</small>}</> : <label>目前市值（TWD）<input required inputMode="numeric" value={marketValue} onChange={(e) => setMarketValue(e.target.value.replace(/[^0-9]/g, ''))} /></label>}<label>年化報酬率（%）<input required type="number" step="0.01" value={annual} onChange={(e) => setAnnual(e.target.value)} /></label>{error && <p className="notice error">{error}</p>}<Footer close={close} busy={busy} /></form></Dialog> }
+function StockDialog({ item, close, done }: { item: Stock | null; close: () => void; done: () => Promise<void> }) {
+  const [ticker, setTicker] = useState(item?.ticker ?? '')
+  const [shares, setShares] = useState(item?.shares == null ? '' : String(item.shares))
+  const [closePrice, setClosePrice] = useState<number | null>(null)
+  const [loadingPrice, setLoadingPrice] = useState(false)
+  const [priceError, setPriceError] = useState('')
+  const [annual, setAnnual] = useState(String((item?.annual_return_bps ?? 0) / 100))
+  const { busy, error, save } = useSave(done)
+  const tickerCode = ticker.trim().toUpperCase()
+  const shareCount = shares === '' ? null : Number(shares)
+  const marketValue = closePrice !== null && shareCount !== null && Number.isSafeInteger(shareCount) && shareCount >= 0
+    ? Math.round(closePrice * shareCount)
+    : null
+
+  const fetchClosePrice = async () => {
+    if (!tickerCode) { setPriceError('請先輸入股票代號。'); return }
+    setLoadingPrice(true)
+    setPriceError('')
+    setClosePrice(null)
+    try {
+      const response = await fetch(`/api/quote?tickers=${encodeURIComponent(tickerCode)}`, { headers: { Accept: 'application/json' } })
+      if (!response.ok) throw new Error(`報價服務回應 ${response.status}`)
+      const payload = await response.json() as { prices?: Record<string, { close?: unknown }>; missing?: string[] }
+      const close = Number(payload.prices?.[tickerCode]?.close)
+      if (payload.missing?.includes(tickerCode) || !Number.isFinite(close) || close <= 0) throw new Error('查無有效收盤價，請確認股票代號後重試。')
+      setClosePrice(close)
+    } catch (fetchError) {
+      setPriceError(fetchError instanceof Error ? fetchError.message : '無法取得收盤價，請確認網路連線及 /api/quote 服務。')
+    } finally {
+      setLoadingPrice(false)
+    }
+  }
+
+  return <Dialog title={item ? '編輯股票' : '新增股票'} close={close}><form className="form" onSubmit={(event) => {
+    event.preventDefault()
+    void save(() => {
+      if (!tickerCode) throw new Error('請輸入股票代號。')
+      if (closePrice === null) throw new Error('請先抓取收盤價。')
+      if (shareCount === null || !Number.isSafeInteger(shareCount) || shareCount < 0) throw new Error('股數必須是 0 或以上的整數。')
+      if (marketValue === null || !Number.isSafeInteger(marketValue)) throw new Error('計算出的市值超出可儲存範圍。')
+      return financeRepository.saveStock({ ...(item ? { id: item.id } : {}), account_id: null, ticker: tickerCode, shares: shareCount, annual_return_bps: Math.round(Number(annual) * 100), valuation_amount: marketValue, valuation_date: dateToday() })
+    })
+  }}>
+    <label>股票代號<input autoFocus required value={ticker} onChange={(event) => { setTicker(event.target.value); setClosePrice(null); setPriceError('') }} placeholder="0050" /></label>
+    <button type="button" className="secondary" disabled={loadingPrice || !tickerCode} onClick={() => void fetchClosePrice()}>{loadingPrice ? '抓取中…' : '抓取收盤價'}</button>
+    {closePrice !== null && <p className="muted">最新收盤價：NT$ {closePrice.toLocaleString('zh-TW', { maximumFractionDigits: 2 })}</p>}
+    {priceError && <p className="notice error">{priceError}</p>}
+    <label>股數<input type="number" min="0" step="1" inputMode="numeric" required value={shares} onChange={(event) => setShares(event.target.value)} placeholder="輸入持有股數" /></label>
+    <label>目前市值（TWD，自動計算）<input readOnly value={marketValue === null ? '請先抓取收盤價並輸入股數' : marketValue.toLocaleString('en-US')} /></label>
+    <label>年化報酬率（%）<input required type="number" step="0.01" value={annual} onChange={(event) => setAnnual(event.target.value)} /></label>
+    {error && <p className="notice error">{error}</p>}
+    <Footer close={close} busy={busy} />
+  </form></Dialog>
+}
 function RecurringDialog({ data, item, close, done }: { data: FinanceSnapshot; item: any; close: () => void; done: () => Promise<void> }) {
   const [name, setName] = useState(item?.name ?? '')
   const [kind, setKind] = useState(item?.kind ?? 'expense')
