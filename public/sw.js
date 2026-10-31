@@ -1,4 +1,4 @@
-const CACHE = 'money-money-money-v3'
+const CACHE = 'money-money-money-v4'
 const APP_SHELL = ['/manifest.webmanifest', '/favicon.svg']
 const timeout = () => new Promise((_, reject) => setTimeout(() => reject(new Error('network timeout')), 4000))
 
@@ -14,6 +14,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== location.origin) return
+  if (new URL(event.request.url).pathname.startsWith('/api/')) return
   if (event.request.mode === 'navigate') {
     event.respondWith(Promise.race([fetch(event.request), timeout()]).then((response) => {
       if (response.ok) caches.open(CACHE).then((cache) => cache.put('/', response.clone()))

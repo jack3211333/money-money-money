@@ -110,7 +110,7 @@ export const financeRepository = {
     if (error) throw error
   },
   saveLiability: (value: Partial<Liability> & Create<Liability>) => save<Liability>('liabilities', value),
-  saveStock: (value: Partial<Stock> & Create<Stock>) => save<Stock>('stocks', value),
+  saveStock: (value: (Partial<Stock> & Pick<Stock, 'id'>) | Create<Stock>) => save<Stock>('stocks', value),
   saveRecurringRule: (value: Partial<RecurringRule> & Create<RecurringRule>) => save<RecurringRule>('recurring_rules', value),
   saveInvestmentPlan: (value: Partial<InvestmentPlan> & Create<InvestmentPlan>) => save<InvestmentPlan>('investment_plans', value),
   saveForecastEvent: (value: Partial<ForecastEvent> & Create<ForecastEvent>) => save<ForecastEvent>('forecast_events', value),

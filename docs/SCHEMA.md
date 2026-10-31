@@ -7,6 +7,7 @@ Migrations：
 > 2026-10-28 離線交易功能沒有資料庫 schema 或 migration 變更；快照、待同步交易與失敗通知僅儲存在各裝置 IndexedDB。
 > 2026-10-28 `202610280001_quick_transactions.sql`：已套用；新增使用者隔離的快速交易選項資料表及索引，並確認 RLS、政策與 trigger 已建立。
 > 2026-10-28 20:12（台北時間）`202610280002_account_sort_order.sql`：已套用；為帳戶新增 `sort_order`，以既有名稱順序初始化並新增使用者排序索引。已查驗欄位、索引存在，且 accounts RLS 啟用、擁有者政策仍有效。
+> 2026-11-01（台北時間；使用者回報已套用，實際時間未提供）`202611010001_add_stock_shares.sql`：新增可空的 `stocks.shares` bigint 欄位，並限制股數不得小於 0；既有資料不回填。
 
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
@@ -20,6 +21,7 @@ Migrations：
 - `supabase/migrations/202610250004_personalize_jack_category_icons.sql`
 - `supabase/migrations/202610280001_quick_transactions.sql`
 - `supabase/migrations/202610280002_account_sort_order.sql`
+- `supabase/migrations/202611010001_add_stock_shares.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -28,7 +30,7 @@ Migrations：
 | `transactions` | 收入、支出及成對轉帳；轉帳以 `transfer_group_id` 連結。轉帳手續費另存同群組、帶有 `is_transfer_fee` 標記的支出資料。 |
 | `quick_transactions` | 使用者自訂的收入／支出預填選項；保存金額、帳戶、可選分類與備註，不會建立帳本交易。 |
 | `liabilities` | 貸款或分期負債：本金、年利率、整數元月繳款、期數、起始日。分期使用 0% 利率及自訂月繳款。 |
-| `stocks` | 可為空的舊帳戶關聯、代號、目前市值基準日期與年化報酬率；不記錄股數或總成本。股票帳戶關聯已移除，既有股票的 `account_id` 清空。 |
+| `stocks` | 可為空的舊帳戶關聯、代號、選填股數、目前市值基準日期與年化報酬率；不記錄總成本。股票帳戶關聯已移除，既有股票的 `account_id` 清空。 |
 | `recurring_rules` | 僅供推演的固定收入或支出；保留可選分類，不分配至帳戶。 |
 | `investment_plans` | 僅供推演的每月股票持續投入；連結股票，不指定扣款帳戶。 |
 | `forecast_events` | 僅供推演的一次性收入或支出；記錄日期、項目與金額，不分配至帳戶。 |
@@ -47,7 +49,7 @@ Migrations：
 
 `202610250004` 只更新 `jack3211333@gmail.com` 的有效分類外觀設定：依分類名稱寫入 Lucide `icon_key`，並把每個支出大分類及其小分類設為同一 `color`。未變更分類名稱、層級、交易關聯或其他使用者資料。
 
-`stocks.valuation_amount` 與 `valuation_date` 必填，代表目前市值基準及其日期。新增股票時以輸入市值和新增日作為基準；編輯時可留空不修正，或輸入一次性修正值並以修正當日作為新基準。估值與推演依年化報酬率計算。202610240002 migration 將既有股票截至套用日的推算市值回填為新基準，再移除 `shares` 與 `total_cost`。
+`stocks.valuation_amount` 與 `valuation_date` 必填，代表目前市值基準及其日期。新增股票時以輸入市值和新增日作為基準；編輯時可留空不修正，或輸入一次性修正值並以修正當日作為新基準。估值與推演依年化報酬率計算。202610240002 migration 將既有股票截至套用日的推算市值回填為新基準，再移除當時的 `shares` 與 `total_cost`。`202611010001` 重新加入選填 `shares`（bigint，允許 null、限制大於等於 0），用於收盤價更新時計算持倉市值；更新時估值日期設為操作當天，既有手動市值流程不變。
 
 `liabilities.monthly_payment` 必填且為正整數 TWD。貸款年利率與月繳款按本息平均攤還公式互算；既有月繳款由原年利率回填。分期不顯示年利率，固定使用 0%；migration 將既有分期利率設為 0%，月繳款回填為本金除以期數的整數元。刪除股票時，資料庫 trigger 會軟刪除同一使用者對應的有效 `investment_plans`；推演亦只採用仍有效股票的計畫。
 
