@@ -84,7 +84,7 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
   let cumulativeContribution = 0
   const activeStockIds = new Set(snapshot.stocks.map((stock) => stock.id))
   return Array.from({ length: 12 }, (_, index) => {
-    const month = new Date(start.getFullYear(), start.getMonth() + index + 1, 0)
+    const month = new Date(start.getFullYear(), start.getMonth() + index + 2, 0)
     const monthNumber = month.getMonth() + 1
     const monthKey = `${month.getFullYear()}-${String(monthNumber).padStart(2, '0')}`
     const monthEnd = `${monthKey}-${String(month.getDate()).padStart(2, '0')}`
