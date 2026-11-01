@@ -82,7 +82,7 @@ export function Reports({ data }: { data: FinanceSnapshot }) {
   const incomeRoots = useMemo(() => summarize(transactions.filter((item) => item.kind === 'income'), data.categories, 'root'), [data.categories, transactions])
   const selectedExpense = expenseRoots.find((item) => item.id === expenseRootId)
   const expenseChildren = useMemo(() => expenseRootId ? summarize(transactions.filter((item) => item.kind === 'expense'), data.categories, 'child', expenseRootId) : [], [data.categories, expenseRootId, transactions])
-  const topExpenses = useMemo(() => transactions.filter((item) => item.kind === 'expense').sort((a, b) => b.amount - a.amount).slice(0, 5), [transactions])
+  const topExpenses = useMemo(() => transactions.filter((item) => item.kind === 'expense').sort((a, b) => b.amount - a.amount).slice(0, 10), [transactions])
   const trend = useMemo(() => makeTrend(transactions, start, end), [end, start, transactions])
   const chooseMode = (next: RangeMode) => { setMode(next); setExpenseRootId(null) }
   return <>
@@ -93,7 +93,7 @@ export function Reports({ data }: { data: FinanceSnapshot }) {
     <BreakdownPanel title="支出分類" items={expenseRoots} selectedId={expenseRootId ?? undefined} select={(id) => setExpenseRootId((current) => current === id ? null : id)} />
     {selectedExpense && <BreakdownPanel title={`${selectedExpense.name}的小分類`} items={expenseChildren} />}
     <BreakdownPanel title="收入分類" items={incomeRoots} />
-    <section className="section report-card"><header><h2>單筆支出 Top 5</h2><small>{rangeLabel(mode, month, start, end)}</small></header><div className="list">{topExpenses.map((item, index) => <article className="report-top-expense" key={item.id}><b>{index + 1}</b><span><strong>{item.note || categoryPath(data.categories.find((category) => category.id === item.category_id), data.categories)}</strong><small>{item.transaction_date} · {categoryPath(data.categories.find((category) => category.id === item.category_id), data.categories)}</small></span><em>{twd(item.amount)}</em></article>)}{!topExpenses.length && <Empty />}</div></section>
+    <section className="section report-card"><header><h2>單筆支出 Top 10</h2><small>{rangeLabel(mode, month, start, end)}</small></header><div className="list">{topExpenses.map((item, index) => <article className="report-top-expense" key={item.id}><b>{index + 1}</b><span><strong>{item.note || categoryPath(data.categories.find((category) => category.id === item.category_id), data.categories)}</strong><small>{item.transaction_date} · {categoryPath(data.categories.find((category) => category.id === item.category_id), data.categories)}</small></span><em>{twd(item.amount)}</em></article>)}{!topExpenses.length && <Empty />}</div></section>
   </>
 }
 
