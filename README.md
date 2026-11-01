@@ -1,8 +1,10 @@
-# Money Money Money 1.01
+# Money Money Money 1.1
 
-**正式版 1.01 已完成。** 這是一個手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入；所有功能均已驗收，目前沒有排定的後續版本計畫。
+**正式版 1.1 已完成。** 這是一個手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入；所有功能均已驗收，目前沒有排定的後續版本計畫。
 
 專案決策沿革見 [`docs/DECISIONS.md`](docs/DECISIONS.md)，資料庫結構見 [`docs/SCHEMA.md`](docs/SCHEMA.md)。
+
+使用說明：[使用手冊](output/pdf/money-money-money-1.1-user-guide.pdf)；技術架構：[技術手冊](output/pdf/money-money-money-1.1-technical-guide.pdf)。
 
 ## 本機啟動
 
@@ -43,7 +45,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 - 獨立主畫面 App：在 Safari 開啟 `https://你的正式網站網址/quick-add.html`，從分享選單選「加入主畫面」。這個圖示會以「快速記帳」名稱安裝，開啟後直接進入新增交易表單。
 - 若尚未登入，先登入後會接續顯示表單。表單不會預填或自動儲存交易。
 
-1.01 驗收已完成，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
+1.1 驗收已完成，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
 
 ## GitHub 與 Vercel 部署
 
