@@ -60,7 +60,7 @@ export default function App() {
   }
   useEffect(() => { if (!isSupabaseConfigured) return; void offlineStore.persist(); authRepository.cachedUser().then(async (current) => { setUser(current); if (!current) return; const cached = await offlineStore.snapshot(current.id); const rows = await offlineStore.pending(current.id); if (cached) setData(mergePending(cached, rows)); await refreshLocal(current) }); const { data: subscription } = authRepository.onAuthChange(() => void authRepository.cachedUser().then((current) => setUser(current))); const onOnline = () => { setOnline(true); setSyncRequest((value) => value + 1) }; const onOffline = () => setOnline(false); const onVisible = () => { if (document.visibilityState === 'visible' && navigator.onLine) setSyncRequest((value) => value + 1) }; window.addEventListener('online', onOnline); window.addEventListener('offline', onOffline); document.addEventListener('visibilitychange', onVisible); return () => { subscription.subscription.unsubscribe(); window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); document.removeEventListener('visibilitychange', onVisible) } }, [])
   useEffect(() => { if (user && online) { void reload(); void sync() } }, [user, online, syncRequest])
-  useEffect(() => { if (user && 'Notification' in window && Notification.permission === 'granted' && import.meta.env.VITE_VAPID_PUBLIC_KEY) void syncPushSubscription().catch(() => {}) }, [user])
+  useEffect(() => { if (user && 'Notification' in window && Notification.permission === 'granted' && import.meta.env.VITE_VAPID_PUBLIC_KEY) void syncPushSubscription().catch((error) => setMessage(error instanceof Error ? error.message : '推播訂閱同步失敗。')) }, [user])
   useEffect(() => {
     if (!user || !launchNewTransaction) return
     setEditing(null)
@@ -119,15 +119,39 @@ function activeCategories(categories: Category[]) { return categories.filter((ca
 function categoryName(category: Category, categories: Category[]) { const parent = category.parent_id ? categories.find((item) => item.id === category.parent_id) : undefined; return parent ? `${parent.name} › ${category.name}` : category.name }
 function Home({ data, open, goToAssets }: { data: FinanceSnapshot; open: (m: Modal) => void; goToAssets: () => void }) { const totals = useMemo(() => financialTotals(data), [data]); const budget = useMemo(() => dailyBudget(data), [data]); const currentMonth = dateToday().slice(0, 7); const flow = data.transactions.filter((t) => t.transaction_date.startsWith(currentMonth)).reduce((all, t) => ({ income: all.income + (t.kind === 'income' ? t.amount : 0), expense: all.expense + (t.kind === 'expense' ? t.amount : 0) }), { income: 0, expense: 0 }); return <><section className="hero"><span>淨資產</span><strong>{twd(totals.netWorth)}</strong><small>資產 {twd(totals.assets)}　負債 {twd(totals.liabilities)}</small><button className="hero-action" onClick={goToAssets}>查看資產與負債</button></section><div className="metrics"><Metric title="本月收入" value={twd(flow.income)} /><Metric title="本月支出" value={twd(flow.expense)} /><Metric title="本月預計支出" value={twd(budget.planned)} /><Metric title="本日可支出額度" value={twd(budget.quota)} detail={`今日已支出 ${twd(budget.spentToday)}`} /></div><Section title="帳戶餘額" action="管理" click={() => open('account')}><div className="list">{data.accounts.filter((a) => !a.is_archived).map((a) => <div className="row" key={a.id}><AccountIcon iconKey={a.icon_key} /><span><b>{a.name}</b><small>{accountKinds[a.kind]}</small></span><strong>{twd(accountBalance(a, data.transactions))}</strong></div>)}{!data.accounts.length && <Empty text="先新增帳戶。" />}</div></Section></> }
 function Metric({ title, value, detail }: { title: string; value: string; detail?: string }) { return <div className="metric"><small>{title}</small><b>{value}</b>{detail && <small>{detail}</small>}</div> }
-const applicationServerKey = (value: string) => Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), (character) => character.charCodeAt(0))
+class PushFlowError extends Error {
+  constructor(stage: string, cause: unknown) { super(`${stage}：${safePushError(cause)}`) }
+}
+const safePushError = (cause: unknown) => {
+  const text = cause instanceof Error ? cause.message : String(cause)
+  return text.replace(/https?:\/\/\S+/gi, '[已隱藏]').replace(/[A-Za-z0-9_-]{32,}/g, '[已隱藏]').slice(0, 220)
+}
+const applicationServerKey = (value: string) => {
+  const base64 = value.trim().replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+  const decoded = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0))
+  if (decoded.length !== 65 || decoded[0] !== 4) throw new Error('VAPID public key 格式無效')
+  return decoded
+}
 async function syncPushSubscription() {
   const key = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
-  if (!key || !('serviceWorker' in navigator) || !('PushManager' in window)) return
-  const registration = await navigator.serviceWorker.ready
-  const subscription = await registration.pushManager.getSubscription() ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: applicationServerKey(key) })
-  const json = subscription.toJSON()
-  if (!subscription.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new Error('無法取得推播訂閱資料。')
-  await pushRepository.saveSubscription({ endpoint: subscription.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, user_agent: navigator.userAgent })
+  if (!key) throw new PushFlowError('VAPID 設定失敗', new Error('尚未設定公開 VAPID key'))
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new PushFlowError('訂閱失敗', new Error('此瀏覽器不支援 Web Push'))
+  let registration: ServiceWorkerRegistration
+  try { registration = await navigator.serviceWorker.ready } catch (error) { throw new PushFlowError('Service Worker 準備失敗', error) }
+  let subscription: PushSubscription | null
+  try { subscription = await registration.pushManager.getSubscription() } catch (error) { throw new PushFlowError('讀取訂閱失敗', error) }
+  if (!subscription) {
+    let serverKey: Uint8Array
+    try { serverKey = applicationServerKey(key) } catch (error) { throw new PushFlowError('訂閱失敗', error) }
+    try { subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey }) }
+    catch (error) { throw new PushFlowError('訂閱失敗', error) }
+  }
+  let json: PushSubscriptionJSON
+  try { json = subscription.toJSON() } catch (error) { throw new PushFlowError('讀取訂閱資料失敗', error) }
+  if (!subscription.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new PushFlowError('讀取訂閱資料失敗', new Error('瀏覽器未提供必要的推播欄位'))
+  try { await pushRepository.saveSubscription({ endpoint: subscription.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, user_agent: navigator.userAgent }) }
+  catch (error) { throw new PushFlowError('寫入失敗', error) }
 }
 function Transactions({ data, open, selectedDate, setSelectedDate, pendingIds, removePending }: { data: FinanceSnapshot; open: (m: Modal, item?: unknown) => void; selectedDate: string; setSelectedDate: (date: string) => void; pendingIds: Set<string>; removePending: (id: string) => Promise<void> }) {
   const [search, setSearch] = useState('')
@@ -217,9 +241,9 @@ function PushSettings() {
   const denied = supported && Notification.permission === 'denied'
   const enabled = supported && Notification.permission === 'granted'
   const unavailable = !supported || !standalone
-  const enable = async () => { setBusy(true); setMessage(''); try { const permission = await Notification.requestPermission(); if (permission !== 'granted') { setMessage('通知權限未開啟。請到 iPhone 設定允許此 App 傳送通知。'); return } await syncPushSubscription(); setMessage('每日通知已開啟。') } catch (error) { setMessage(error instanceof Error ? error.message : '開啟通知失敗。') } finally { setBusy(false) } }
+  const enable = async () => { setBusy(true); setMessage(''); let permission: NotificationPermission; try { permission = await Notification.requestPermission() } catch (error) { setMessage(`權限請求失敗：${safePushError(error)}`); setBusy(false); return } if (permission !== 'granted') { setMessage('通知權限未開啟。請到 iPhone 設定允許此 App 傳送通知。'); setBusy(false); return } try { await syncPushSubscription(); setMessage('通知已開啟。') } catch (error) { setMessage(error instanceof Error ? error.message : `訂閱失敗：${safePushError(error)}`) } finally { setBusy(false) } }
   const disable = async () => { setBusy(true); setMessage(''); try { const registration = await navigator.serviceWorker.ready; const subscription = await registration.pushManager.getSubscription(); if (subscription) { await pushRepository.softDeleteSubscription(subscription.endpoint); await subscription.unsubscribe() } setMessage('每日通知已關閉。') } catch (error) { setMessage(error instanceof Error ? error.message : '關閉通知失敗。') } finally { setBusy(false) } }
-  const sendTest = async () => { setBusy(true); setMessage(''); try { await pushRepository.testPush(); setMessage('測試通知已送出。') } catch (error) { setMessage(error instanceof Error ? error.message : '測試通知失敗。') } finally { setBusy(false) } }
+  const sendTest = async () => { setBusy(true); setMessage(''); try { await pushRepository.testPush(); setMessage('已送出測試通知。') } catch (error) { setMessage(error instanceof Error ? error.message : '測試通知失敗。') } finally { setBusy(false) } }
   return <Section title="每日通知"><div className="form"><p className="muted">固定於台灣時間 06:00 與 23:00 傳送；iOS 推播可能延遲數秒至數分鐘，專注模式可能攔截通知。</p>{unavailable && <p className="notice">iPhone 需 iOS 16.4 以上並從主畫面開啟。</p>}{denied && <p className="notice">通知權限已拒絕。請到 iPhone 設定中允許此 App 傳送通知，再回來開啟。</p>}{!unavailable && !denied && <div className="exports">{!enabled ? <button className="primary" disabled={busy || !import.meta.env.VITE_VAPID_PUBLIC_KEY} onClick={() => void enable()}>開啟每日通知</button> : <><button className="secondary" disabled={busy} onClick={() => void disable()}>關閉通知</button><button className="secondary" disabled={busy} onClick={() => void sendTest()}>傳送測試通知</button></>}</div>}{!import.meta.env.VITE_VAPID_PUBLIC_KEY && !unavailable && !denied && <small>尚未設定公開 VAPID key；設定後即可開啟通知。</small>}{message && <p className="notice">{message}</p>}</div></Section>
 }
 

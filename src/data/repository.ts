@@ -154,7 +154,12 @@ export const pushRepository = {
   async saveSubscription(value: { endpoint: string; p256dh: string; auth: string; user_agent: string }) {
     const existing = await client().from('push_subscriptions').select('id').eq('endpoint', value.endpoint).is('deleted_at', null).maybeSingle()
     if (existing.error) throw existing.error
-    const current = existing.data ?? (await client().from('push_subscriptions').select('id').is('deleted_at', null).limit(1).maybeSingle()).data
+    let current = existing.data
+    if (!current) {
+      const active = await client().from('push_subscriptions').select('id').is('deleted_at', null).limit(1).maybeSingle()
+      if (active.error) throw active.error
+      current = active.data
+    }
     const request = current
       ? client().from('push_subscriptions').update(value).eq('id', current.id)
       : client().from('push_subscriptions').insert(value)
@@ -166,7 +171,23 @@ export const pushRepository = {
     if (error) throw error
   },
   async testPush() {
-    const { error } = await client().functions.invoke('push-test', { body: {} })
-    if (error) throw error
+    const { data, error } = await client().functions.invoke('push-test', { body: {} })
+    if (error) {
+      const context = (error as Error & { context?: Response }).context
+      let responseBody: { reason?: string; statusCode?: number } | undefined
+      if (context) {
+        try { responseBody = await context.clone().json() } catch { /* Keep the SDK's request error below. */ }
+      }
+      if (responseBody?.reason) throw new Error(pushFailureMessage(responseBody))
+      throw new Error(error.message || '測試通知請求失敗。')
+    }
+    if (data?.reason !== 'sent') throw new Error(pushFailureMessage(data ?? { reason: 'push_failed' }))
   },
+}
+
+function pushFailureMessage(result: { reason?: string; statusCode?: number }) {
+  if (result.reason === 'no_subscription') return '找不到有效訂閱，請先重新開啟每日通知。 (no_subscription)'
+  if (result.reason === 'planned_zero') return '尚未設定推演。 (planned_zero)'
+  if (result.reason === 'push_failed') return `推播傳送失敗${result.statusCode ? `（HTTP ${result.statusCode}）` : ''}。(push_failed)`
+  return '測試通知失敗。'
 }

@@ -27,15 +27,17 @@ export async function userSnapshot(userId: string) {
   return { transactions, recurringRules, forecastEvents, liabilities, investmentPlans, stocks }
 }
 
-export async function send(subscription: { endpoint: string; p256dh: string; auth: string }, payload: object) {
+export type DeliveryResult = { status: 'sent' | 'expired' } | { status: 'failed'; statusCode: number }
+
+export async function send(subscription: { endpoint: string; p256dh: string; auth: string }, payload: object): Promise<DeliveryResult> {
   try {
     const server = await getApplicationServer()
     await server.subscribe({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }).pushTextMessage(JSON.stringify(payload), { ttl: 3600, urgency: Urgency.High, topic: (payload as { tag?: string }).tag })
-    return 'sent' as const
+    return { status: 'sent' }
   } catch (error) {
     const statusCode = error instanceof PushMessageError ? error.response.status : (error as { statusCode?: number }).statusCode
-    if (statusCode === 404 || statusCode === 410) return 'expired' as const
-    throw error
+    if (statusCode === 404 || statusCode === 410) return { status: 'expired' }
+    return { status: 'failed', statusCode: statusCode ?? 500 }
   }
 }
 
