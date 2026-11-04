@@ -8,6 +8,7 @@ Migrations：
 > 2026-10-28 `202610280001_quick_transactions.sql`：已套用；新增使用者隔離的快速交易選項資料表及索引，並確認 RLS、政策與 trigger 已建立。
 > 2026-10-28 20:12（台北時間）`202610280002_account_sort_order.sql`：已套用；為帳戶新增 `sort_order`，以既有名稱順序初始化並新增使用者排序索引。已查驗欄位、索引存在，且 accounts RLS 啟用、擁有者政策仍有效。
 > 2026-11-01（台北時間；使用者回報已套用，實際時間未提供）`202611010001_add_stock_shares.sql`：新增可空的 `stocks.shares` bigint 欄位，並限制股數不得小於 0；既有資料不回填。
+> 2026-11-04（待使用者套用，時間未定）`202611040001_push_notifications.sql`：新增具 RLS 的推播訂閱表與有效 endpoint 唯一索引、更新時間 trigger，並從 Vault 設定每日台灣時間 06:00／23:00 的 pg_cron 工作；migration 不包含任何專案 URL 或密鑰值。
 
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
@@ -22,6 +23,7 @@ Migrations：
 - `supabase/migrations/202610280001_quick_transactions.sql`
 - `supabase/migrations/202610280002_account_sort_order.sql`
 - `supabase/migrations/202611010001_add_stock_shares.sql`
+- `supabase/migrations/202611040001_push_notifications.sql`（待套用）
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -29,6 +31,7 @@ Migrations：
 | `categories` | 兩層收入／支出分類；`parent_id` 為空時是大分類，否則是小分類；`icon_key` 儲存圖示。 |
 | `transactions` | 收入、支出及成對轉帳；轉帳以 `transfer_group_id` 連結。轉帳手續費另存同群組、帶有 `is_transfer_fee` 標記的支出資料。 |
 | `quick_transactions` | 使用者自訂的收入／支出預填選項；保存金額、帳戶、可選分類與備註，不會建立帳本交易。 |
+| `push_subscriptions` | Web Push endpoint 與加密金鑰；以 `user_id`、時間欄位、軟刪除及 RLS 管理，僅保留有效 endpoint 唯一性；保存最近成功推播時間。 |
 | `liabilities` | 貸款或分期負債：本金、年利率、整數元月繳款、期數、起始日。分期使用 0% 利率及自訂月繳款。 |
 | `stocks` | 可為空的舊帳戶關聯、代號、選填股數、目前市值基準日期與年化報酬率；不記錄總成本。股票帳戶關聯已移除，既有股票的 `account_id` 清空。 |
 | `recurring_rules` | 僅供推演的固定收入或支出；保留可選分類，不分配至帳戶。 |
@@ -56,3 +59,5 @@ Migrations：
 `forecast_events` 含 `name`、`kind`（income／expense）、`amount` 與 `event_date`。指定日期落在推演的未來 12 個月且未早於當日時，只計入該月一次；不建立真實交易。每筆資料具 `user_id`、時間欄位、軟刪除與 RLS。
 
 `quick_transactions` 僅允許 `income`／`expense`，金額為正整數，關聯帳戶與可選分類，並保存備註。資料以 `user_id`、建立／更新時間與 `deleted_at` 管理，RLS 限制使用者僅能存取自己的快速選項。選取選項只會預填交易表單；使用者按儲存前不會建立交易。202610280001 migration 新增此表與有效資料索引。
+
+`push_subscriptions` 只由登入者管理自己的訂閱；endpoint 有效資料使用部分唯一索引，關閉通知會軟刪除。202611040001 另啟用 pg_cron／pg_net，工作以 Vault 的 `project_url`、`cron_secret` 呼叫 `daily-budget-push`，不在 migration 保存秘密值。此 migration 尚待套用與確認。

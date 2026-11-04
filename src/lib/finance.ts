@@ -2,8 +2,7 @@ import type { Account, FinanceSnapshot, Liability, Stock, Transaction } from '..
 
 export const twd = (value: number) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(value)
 export const dateToday = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
 export const signedAmount = (transaction: Transaction) => {
@@ -73,11 +72,24 @@ export const financialTotals = (snapshot: FinanceSnapshot) => {
   return { cash, stocks, liabilities, assets: cash + stocks, netWorth: cash + stocks - liabilities }
 }
 
+export const dailyBudget = (snapshot: FinanceSnapshot, today = dateToday()) => {
+  const [year, month, day] = today.split('-').map(Number)
+  const monthStart = `${today.slice(0, 7)}-01`
+  const plannedRow = buildForecast(snapshot)[0]
+  const planned = (plannedRow?.expenses ?? 0) + (plannedRow?.stockContribution ?? 0)
+  const expenses = snapshot.transactions.filter((transaction) => transaction.kind === 'expense' && !transaction.deleted_at)
+  const spentBeforeToday = expenses.filter((transaction) => transaction.transaction_date >= monthStart && transaction.transaction_date < today).reduce((sum, transaction) => sum + transaction.amount, 0)
+  const spentToday = expenses.filter((transaction) => transaction.transaction_date === today).reduce((sum, transaction) => sum + transaction.amount, 0)
+  const remainingDays = new Date(year, month, 0).getDate() - day + 1
+  return { planned, spentBeforeToday, spentToday, remainingDays, quota: Math.floor(Math.max(0, planned - spentBeforeToday) / remainingDays) }
+}
+
 export type ForecastExpense = { name: string; amount: number }
 export type ForecastMonth = { label: string; income: number; expenses: number; expenseItems: ForecastExpense[]; monthlyNet: number; cash: number; stocks: number; stockContribution: number; cumulativeReturn: number; liabilities: number; netWorth: number }
 
 export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
-  const start = new Date(); start.setDate(1)
+  const [todayYear, todayMonth] = dateToday().split('-').map(Number)
+  const start = new Date(todayYear, todayMonth - 1, 1)
   let projectedCash = snapshot.accounts.reduce((sum, account) => sum + accountBalance(account, snapshot.transactions), 0)
   const stockValues = Object.fromEntries(snapshot.stocks.map((stock) => [stock.id, stockValue(stock)])) as Record<string, number>
   const initialStockValue = Object.values(stockValues).reduce((sum, value) => sum + value, 0)

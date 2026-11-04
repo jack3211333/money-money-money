@@ -36,6 +36,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 - 帳戶、階層分類、收入／支出／轉帳、日期搜尋與 CSV 匯出。
 - 報表、負債、股票資產、固定收支、持續投入與 12 個月財務推演。
 - 可安裝 PWA、離線 app shell、離線新增收入／支出、恢復連線同步及 App 內失敗通知。
+- 總覽顯示下月推演支出與本日可支出額度；主 App 可設定台灣時間 06:00／23:00 Web Push 每日通知。iOS 推播為 best effort，06:00 可能延遲數秒至數分鐘，專注模式可能攔截通知。
 - iPhone 可用新增交易網址捷徑，或從 Safari 的 `/quick-add.html` 加入獨立「快速記帳」主畫面 App。
 - Email＋密碼登入、Supabase 跨裝置同步與 RLS 資料隔離。
 
@@ -45,7 +46,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 - 獨立主畫面 App：在 Safari 開啟 `https://你的正式網站網址/quick-add.html`，從分享選單選「加入主畫面」。這個圖示會以「快速記帳」名稱安裝，開啟後直接進入新增交易表單。
 - 若尚未登入，先登入後會接續顯示表單。表單不會預填或自動儲存交易。
 
-1.1 驗收已完成，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
+產品版本維持 1.1；每日額度與 Web Push 功能正在等待 migration 套用及部署驗收，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。通知時間固定為台灣時間 06:00 與 23:00，暫不開放自訂。
 
 ## GitHub 與 Vercel 部署
 
@@ -53,7 +54,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 2. 本機設定一次 Git 作者資料：`git config --global user.name "你的名字"`、`git config --global user.email "你的 Email"`。
 3. 依 GitHub 畫面提供的指令加入 remote，推送目前分支。`.env` 不會被推送。
 4. 登入 Vercel，按 **Add New → Project**，選取剛建立的 GitHub repository，按 **Import**。
-5. 在 Vercel 的 **Environment Variables** 新增與 `.env` 相同的兩個名稱與值；只填 Project URL 和 Publishable key，絕不填 service role key。
+5. 在 Vercel 的 **Environment Variables** 新增前端變數；每日通知功能另需設定公開的 `VITE_VAPID_PUBLIC_KEY`。只填 Project URL、Publishable key 和公開 VAPID key，絕不填 service role key。
 6. 按 **Deploy**。完成後回 Supabase 的 **Authentication → URL Configuration**，將 Vercel 網址加到 Redirect URLs，並把它設為 Site URL。
 7. 之後推送 GitHub，Vercel 會自動部署。
 

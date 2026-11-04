@@ -1,4 +1,4 @@
-const CACHE = 'money-money-money-v4'
+const CACHE = 'money-money-money-v5'
 const APP_SHELL = ['/manifest.webmanifest', '/quick-add.webmanifest', '/favicon.svg']
 const timeout = () => new Promise((_, reject) => setTimeout(() => reject(new Error('network timeout')), 4000))
 
@@ -10,6 +10,20 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))))
   self.clients.claim()
+})
+
+self.addEventListener('push', (event) => {
+  let payload = { title: 'Money Money Money', body: '', tag: 'money-money-money' }
+  try { if (event.data) payload = { ...payload, ...event.data.json() } } catch {}
+  event.waitUntil(self.registration.showNotification(payload.title, { body: payload.body, tag: payload.tag }))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+    const existing = windows.find((windowClient) => 'focus' in windowClient)
+    return existing ? existing.focus() : self.clients.openWindow('/')
+  }))
 })
 
 self.addEventListener('fetch', (event) => {

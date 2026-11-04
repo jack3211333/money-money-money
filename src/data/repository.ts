@@ -144,3 +144,29 @@ export const financeRepository = {
     if (error) throw error
   },
 }
+
+export const pushRepository = {
+  async activeSubscription() {
+    const { data, error } = await client().from('push_subscriptions').select('*').is('deleted_at', null).maybeSingle()
+    if (error) throw error
+    return data
+  },
+  async saveSubscription(value: { endpoint: string; p256dh: string; auth: string; user_agent: string }) {
+    const existing = await client().from('push_subscriptions').select('id').eq('endpoint', value.endpoint).is('deleted_at', null).maybeSingle()
+    if (existing.error) throw existing.error
+    const current = existing.data ?? (await client().from('push_subscriptions').select('id').is('deleted_at', null).limit(1).maybeSingle()).data
+    const request = current
+      ? client().from('push_subscriptions').update(value).eq('id', current.id)
+      : client().from('push_subscriptions').insert(value)
+    const { error } = await request
+    if (error) throw error
+  },
+  async softDeleteSubscription(endpoint: string) {
+    const { error } = await client().from('push_subscriptions').update({ deleted_at: new Date().toISOString() }).eq('endpoint', endpoint).is('deleted_at', null)
+    if (error) throw error
+  },
+  async testPush() {
+    const { error } = await client().functions.invoke('push-test', { body: {} })
+    if (error) throw error
+  },
+}
