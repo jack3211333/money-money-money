@@ -60,7 +60,7 @@ export default function App() {
   }
   useEffect(() => { if (!isSupabaseConfigured) return; void offlineStore.persist(); authRepository.cachedUser().then(async (current) => { setUser(current); if (!current) return; const cached = await offlineStore.snapshot(current.id); const rows = await offlineStore.pending(current.id); if (cached) setData(mergePending(cached, rows)); await refreshLocal(current) }); const { data: subscription } = authRepository.onAuthChange(() => void authRepository.cachedUser().then((current) => setUser(current))); const onOnline = () => { setOnline(true); setSyncRequest((value) => value + 1) }; const onOffline = () => setOnline(false); const onVisible = () => { if (document.visibilityState === 'visible' && navigator.onLine) setSyncRequest((value) => value + 1) }; window.addEventListener('online', onOnline); window.addEventListener('offline', onOffline); document.addEventListener('visibilitychange', onVisible); return () => { subscription.subscription.unsubscribe(); window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); document.removeEventListener('visibilitychange', onVisible) } }, [])
   useEffect(() => { if (user && online) { void reload(); void sync() } }, [user, online, syncRequest])
-  useEffect(() => { if (user && 'Notification' in window && Notification.permission === 'granted' && import.meta.env.VITE_VAPID_PUBLIC_KEY) void syncPushSubscription().catch((error) => setMessage(error instanceof Error ? error.message : '推播訂閱同步失敗。')) }, [user])
+  useEffect(() => { if (user && online && 'Notification' in window && Notification.permission === 'granted' && import.meta.env.VITE_VAPID_PUBLIC_KEY) void syncPushSubscription(undefined, false).catch((error) => setMessage(error instanceof Error ? error.message : '推播訂閱同步失敗。')) }, [user, online])
   useEffect(() => {
     if (!user || !launchNewTransaction) return
     setEditing(null)
@@ -83,7 +83,7 @@ export default function App() {
   return <main className="shell">
     <header className="top"><div><small>MONEY MONEY MONEY</small><h1>{({ home: '總覽', transactions: '交易', reports: '報表', assets: '資產與負債', forecast: '未來推演', settings: '設定' })[page]}</h1></div><div className="top-actions"><button className="icon notification-button" onClick={() => void openNotifications()} aria-label="同步通知">♢{unread > 0 && <b>{unread}</b>}</button><button className="icon" onClick={() => setPage('settings')}>⚙</button></div></header>
     {!online && <p className="notice offline">離線中：僅可新增收入或支出。</p>}{pending.length > 0 && <p className="notice pending">含未同步 {pending.length} 筆；iPhone 需開啟 App 才會同步。</p>}{message && <p className="notice error">{message}</p>}
-    <section className="content">{page === 'home' && <Home data={data} open={open} goToAssets={() => setPage('assets')} />}{page === 'transactions' && <Transactions data={data} open={open} selectedDate={selectedTransactionDate} setSelectedDate={setSelectedTransactionDate} pendingIds={new Set(pending.map((item) => item.id))} removePending={removePending} />}{page === 'reports' && <Reports data={data} />}{page === 'assets' && <Assets data={data} open={open} reload={reload} online={online} onMessage={setMessage} />}{page === 'forecast' && <Forecast data={data} open={open} reload={reload} />}{page === 'settings' && <Settings data={data} open={open} reload={reload} logout={logout} />}</section>
+    <section className="content">{page === 'home' && <Home data={data} open={open} goToAssets={() => setPage('assets')} />}{page === 'transactions' && <Transactions data={data} open={open} selectedDate={selectedTransactionDate} setSelectedDate={setSelectedTransactionDate} pendingIds={new Set(pending.map((item) => item.id))} removePending={removePending} />}{page === 'reports' && <Reports data={data} />}{page === 'assets' && <Assets data={data} open={open} reload={reload} online={online} onMessage={setMessage} />}{page === 'forecast' && <Forecast data={data} open={open} reload={reload} />}{page === 'settings' && <Settings data={data} open={open} reload={reload} logout={logout} user={user} online={online} />}</section>
     <nav><Nav page={page} value="home" label="總覽" icon="●" set={setPage} /><Nav page={page} value="transactions" label="交易" icon="≡" set={setPage} /><button className="add" onClick={() => open('transaction', { defaultDate: page === 'transactions' ? selectedTransactionDate : dateToday() })}>＋<span>新增</span></button><Nav page={page} value="reports" label="報表" icon="◔" set={setPage} /><Nav page={page} value="forecast" label="推演" icon="↗" set={setPage} /></nav>
     {showNotifications && <Notifications items={failed} close={() => setShowNotifications(false)} remove={removeFailed} />}
     {modal === 'transaction' && <TransactionDialog data={data} item={editing as TransferEdit | null} close={() => setModal(null)} done={done} offline={!online} queue={queueTransaction} />}
@@ -120,7 +120,12 @@ function categoryName(category: Category, categories: Category[]) { const parent
 function Home({ data, open, goToAssets }: { data: FinanceSnapshot; open: (m: Modal) => void; goToAssets: () => void }) { const totals = useMemo(() => financialTotals(data), [data]); const budget = useMemo(() => dailyBudget(data), [data]); const currentMonth = dateToday().slice(0, 7); const flow = data.transactions.filter((t) => t.transaction_date.startsWith(currentMonth)).reduce((all, t) => ({ income: all.income + (t.kind === 'income' ? t.amount : 0), expense: all.expense + (t.kind === 'expense' ? t.amount : 0) }), { income: 0, expense: 0 }); return <><section className="hero"><span>淨資產</span><strong>{twd(totals.netWorth)}</strong><small>資產 {twd(totals.assets)}　負債 {twd(totals.liabilities)}</small><button className="hero-action" onClick={goToAssets}>查看資產與負債</button></section><div className="metrics"><Metric title="本月收入" value={twd(flow.income)} /><Metric title="本月支出" value={twd(flow.expense)} /><Metric title="本月預計支出" value={twd(budget.planned)} /><Metric title="本日可支出額度" value={twd(budget.quota)} detail={`今日已支出 ${twd(budget.spentToday)}`} /></div><Section title="帳戶餘額" action="管理" click={() => open('account')}><div className="list">{data.accounts.filter((a) => !a.is_archived).map((a) => <div className="row" key={a.id}><AccountIcon iconKey={a.icon_key} /><span><b>{a.name}</b><small>{accountKinds[a.kind]}</small></span><strong>{twd(accountBalance(a, data.transactions))}</strong></div>)}{!data.accounts.length && <Empty text="先新增帳戶。" />}</div></Section></> }
 function Metric({ title, value, detail }: { title: string; value: string; detail?: string }) { return <div className="metric"><small>{title}</small><b>{value}</b>{detail && <small>{detail}</small>}</div> }
 class PushFlowError extends Error {
-  constructor(stage: string, cause: unknown) { super(`${stage}：${safePushError(cause)}`) }
+  stage: string
+  constructor(stage: string, cause: unknown) {
+    const code = (cause as { code?: string } | null)?.code
+    super(`${stage}：${safePushError(cause)}${code ? ` (${code})` : ''}`)
+    this.stage = stage
+  }
 }
 const safePushError = (cause: unknown) => {
   const text = cause instanceof Error ? cause.message : String(cause)
@@ -133,7 +138,7 @@ const applicationServerKey = (value: string) => {
   if (decoded.length !== 65 || decoded[0] !== 4) throw new Error('VAPID public key 格式無效')
   return decoded
 }
-async function syncPushSubscription() {
+async function syncPushSubscription(onProgress?: (progress: { user?: string; write?: string; verification?: string }) => void, subscribeIfMissing = true) {
   const key = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
   if (!key) throw new PushFlowError('VAPID 設定失敗', new Error('尚未設定公開 VAPID key'))
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new PushFlowError('訂閱失敗', new Error('此瀏覽器不支援 Web Push'))
@@ -142,6 +147,7 @@ async function syncPushSubscription() {
   let subscription: PushSubscription | null
   try { subscription = await registration.pushManager.getSubscription() } catch (error) { throw new PushFlowError('讀取訂閱失敗', error) }
   if (!subscription) {
+    if (!subscribeIfMissing) return null
     let serverKey: Uint8Array
     try { serverKey = applicationServerKey(key) } catch (error) { throw new PushFlowError('訂閱失敗', error) }
     try { subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey }) }
@@ -150,8 +156,8 @@ async function syncPushSubscription() {
   let json: PushSubscriptionJSON
   try { json = subscription.toJSON() } catch (error) { throw new PushFlowError('讀取訂閱資料失敗', error) }
   if (!subscription.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new PushFlowError('讀取訂閱資料失敗', new Error('瀏覽器未提供必要的推播欄位'))
-  try { await pushRepository.saveSubscription({ endpoint: subscription.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, user_agent: navigator.userAgent }) }
-  catch (error) { throw new PushFlowError('寫入失敗', error) }
+  try { return await pushRepository.saveSubscription({ endpoint: subscription.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, user_agent: navigator.userAgent }, onProgress) }
+  catch (error) { throw new PushFlowError((error as { stage?: string })?.stage === 'verification' ? '驗證失敗' : (error as { stage?: string })?.stage === 'user' ? '登入驗證失敗' : '寫入失敗', error) }
 }
 function Transactions({ data, open, selectedDate, setSelectedDate, pendingIds, removePending }: { data: FinanceSnapshot; open: (m: Modal, item?: unknown) => void; selectedDate: string; setSelectedDate: (date: string) => void; pendingIds: Set<string>; removePending: (id: string) => Promise<void> }) {
   const [search, setSearch] = useState('')
@@ -218,7 +224,7 @@ function Assets({ data, open, reload, online, onMessage }: { data: FinanceSnapsh
   }
   return <><Section title="負債" action="新增" click={() => open('liability')}><div className="list">{data.liabilities.map((item) => <div className="row" key={item.id}><span><b>{item.name}</b><small>{item.kind === 'loan' ? `貸款 · 年利率 ${item.annual_rate_bps / 100}%` : '分期／零卡'} · 月繳 ${twd(item.monthly_payment)}</small></span><strong>{twd(liabilityBalance(item))}</strong><button className="text" onClick={() => open('liability', item)}>編輯</button><button className="text danger" onClick={() => void remove('liabilities', item.id)}>刪除</button></div>)}{!data.liabilities.length && <Empty text="沒有未清償負債。" />}</div></Section><Section title="股票" action="新增" click={() => open('stock')}><div className="toolbar-actions"><button type="button" className="secondary" disabled={updatingStocks} onClick={() => void updateStockPrices()}>{updatingStocks ? '更新中…' : '更新股價'}</button></div><div className="list">{data.stocks.map((item) => <div className="row" key={item.id}><span><b>{item.ticker}</b><small>年化 {item.annual_return_bps / 100}%</small></span><strong>{twd(stockValue(item))}</strong><button className="text" onClick={() => open('stock', item)}>編輯</button><button className="text danger" onClick={() => void remove('stocks', item.id)}>刪除</button></div>)}{!data.stocks.length && <Empty text="新增股票並輸入目前市值。" />}</div></Section></>
 }
-function Settings({ data, open, reload, logout }: { data: FinanceSnapshot; open: (m: Modal, item?: unknown) => void; reload: () => Promise<void>; logout: () => Promise<void> }) {
+function Settings({ data, open, reload, logout, user, online }: { data: FinanceSnapshot; open: (m: Modal, item?: unknown) => void; reload: () => Promise<void>; logout: () => Promise<void>; user: User | null; online: boolean }) {
   const moveAccount = async (index: number, offset: -1 | 1) => {
     const otherIndex = index + offset
     const current = data.accounts[index]
@@ -230,21 +236,59 @@ function Settings({ data, open, reload, logout }: { data: FinanceSnapshot; open:
   }
   const removeAccount = async (id: string) => { if (confirm('確定要刪除嗎？')) { await financeRepository.softDelete('accounts', id); await reload() } }
   const removeCategory = async (item: Category) => { const children = activeCategories(data.categories).filter((c) => c.parent_id === item.id).length; const wording = children ? `這會同時刪除 ${children} 個小分類，確定嗎？` : '確定要刪除這個分類嗎？'; if (confirm(wording)) { await financeRepository.softDeleteCategory(item.id); await reload() } }
-  return <><PushSettings /><Section title="帳戶" action="新增" click={() => open('account')}><div className="list">{data.accounts.map((item, index) => <div className="row" key={item.id}><AccountIcon iconKey={item.icon_key} /><span><b>{item.name}</b><small>{accountKinds[item.kind]} {item.is_archived ? '· 已封存' : ''}</small></span><button className="text" disabled={index === 0} aria-label={`將${item.name}上移`} onClick={() => void moveAccount(index, -1)}>上移</button><button className="text" disabled={index === data.accounts.length - 1} aria-label={`將${item.name}下移`} onClick={() => void moveAccount(index, 1)}>下移</button><button className="text" onClick={() => open('account', item)}>編輯</button><button className="text danger" onClick={() => void removeAccount(item.id)}>刪除</button></div>)}</div></Section>{(['income', 'expense'] as CategoryDirection[]).map((direction) => <CategorySettings key={direction} direction={direction} categories={data.categories} open={open} remove={removeCategory} />)}<Section title="CSV 匯出"><div className="exports">{(['transactions', 'accounts', 'liabilities', 'stocks'] as const).map((key) => <button className="secondary" key={key} onClick={() => downloadCsv(key, data)}>{({ transactions: '交易', accounts: '帳戶', liabilities: '負債', stocks: '股票' })[key]}</button>)}</div></Section><PasswordSettings /><button className="signout" onClick={() => void logout()}>登出</button></>
+  return <><PushSettings user={user} online={online} /><Section title="帳戶" action="新增" click={() => open('account')}><div className="list">{data.accounts.map((item, index) => <div className="row" key={item.id}><AccountIcon iconKey={item.icon_key} /><span><b>{item.name}</b><small>{accountKinds[item.kind]} {item.is_archived ? '· 已封存' : ''}</small></span><button className="text" disabled={index === 0} aria-label={`將${item.name}上移`} onClick={() => void moveAccount(index, -1)}>上移</button><button className="text" disabled={index === data.accounts.length - 1} aria-label={`將${item.name}下移`} onClick={() => void moveAccount(index, 1)}>下移</button><button className="text" onClick={() => open('account', item)}>編輯</button><button className="text danger" onClick={() => void removeAccount(item.id)}>刪除</button></div>)}</div></Section>{(['income', 'expense'] as CategoryDirection[]).map((direction) => <CategorySettings key={direction} direction={direction} categories={data.categories} open={open} remove={removeCategory} />)}<Section title="CSV 匯出"><div className="exports">{(['transactions', 'accounts', 'liabilities', 'stocks'] as const).map((key) => <button className="secondary" key={key} onClick={() => downloadCsv(key, data)}>{({ transactions: '交易', accounts: '帳戶', liabilities: '負債', stocks: '股票' })[key]}</button>)}</div></Section><PasswordSettings /><button className="signout" onClick={() => void logout()}>登出</button></>
 }
 
-function PushSettings() {
+function PushSettings({ user, online }: { user: User | null; online: boolean }) {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [synced, setSynced] = useState(false)
+  const [diagnostics, setDiagnostics] = useState({ user: user ? '存在（App session）' : '不存在', write: '尚未執行', verification: '尚未執行' })
   const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window
   const standalone = window.matchMedia('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
   const denied = supported && Notification.permission === 'denied'
   const enabled = supported && Notification.permission === 'granted'
   const unavailable = !supported || !standalone
-  const enable = async () => { setBusy(true); setMessage(''); let permission: NotificationPermission; try { permission = await Notification.requestPermission() } catch (error) { setMessage(`權限請求失敗：${safePushError(error)}`); setBusy(false); return } if (permission !== 'granted') { setMessage('通知權限未開啟。請到 iPhone 設定允許此 App 傳送通知。'); setBusy(false); return } try { await syncPushSubscription(); setMessage('通知已開啟。') } catch (error) { setMessage(error instanceof Error ? error.message : `訂閱失敗：${safePushError(error)}`) } finally { setBusy(false) } }
-  const disable = async () => { setBusy(true); setMessage(''); try { const registration = await navigator.serviceWorker.ready; const subscription = await registration.pushManager.getSubscription(); if (subscription) { await pushRepository.softDeleteSubscription(subscription.endpoint); await subscription.unsubscribe() } setMessage('每日通知已關閉。') } catch (error) { setMessage(error instanceof Error ? error.message : '關閉通知失敗。') } finally { setBusy(false) } }
+  const onProgress = (progress: { user?: string; write?: string; verification?: string }) => setDiagnostics((current) => ({ ...current, ...progress }))
+  const failSync = (error: unknown) => {
+    const stage = (error as { stage?: string } | null)?.stage ?? ''
+    const detail = error instanceof Error ? error.message : safePushError(error)
+    setDiagnostics((current) => ({
+      ...current,
+      ...(stage.includes('登入') ? { user: `失敗：${detail}` } : {}),
+      ...(stage === '寫入失敗' ? { write: `失敗：${detail}` } : {}),
+      ...(stage === '驗證失敗' ? { verification: `失敗：${detail}` } : {}),
+    }))
+    setSynced(false)
+    setMessage(detail)
+  }
+  useEffect(() => {
+    if (!user || !online || !enabled || !standalone || synced || busy) return
+    let active = true
+    setBusy(true)
+    void syncPushSubscription(onProgress, false).then((result) => {
+      if (active && result) { setSynced(true); setMessage('通知已開啟。') }
+      else if (active) onProgress({ write: '尚未建立本機訂閱', verification: '尚未執行' })
+    }).catch((error) => { if (active) failSync(error) }).finally(() => { if (active) setBusy(false) })
+    return () => { active = false }
+  }, [user, online, enabled, standalone])
+  const enable = async () => {
+    setBusy(true); setMessage(''); setSynced(false)
+    setDiagnostics({ user: user ? '存在（App session；將向 Supabase 核對）' : '不存在', write: '尚未執行', verification: '尚未執行' })
+    if (!user) { setDiagnostics((value) => ({ ...value, user: '不存在' })); setMessage('登入使用者不存在，請重新登入。'); setBusy(false); return }
+    if (!online || !navigator.onLine) { setDiagnostics((value) => ({ ...value, write: '失敗：目前離線 (OFFLINE)' })); setMessage('寫入失敗：目前離線，推播訂閱不會暫存，請連線後重試。 (OFFLINE)'); setBusy(false); return }
+    let permission: NotificationPermission
+    try { permission = await Notification.requestPermission() } catch (error) { setMessage(`權限請求失敗：${safePushError(error)}`); setBusy(false); return }
+    if (permission !== 'granted') { setMessage('通知權限未開啟。請到 iPhone 設定允許此 App 傳送通知。'); setBusy(false); return }
+    try {
+      await syncPushSubscription(onProgress)
+      setSynced(true)
+      setMessage('通知已開啟。')
+    } catch (error) { failSync(error) } finally { setBusy(false) }
+  }
+  const disable = async () => { setBusy(true); setMessage(''); try { const registration = await navigator.serviceWorker.ready; const subscription = await registration.pushManager.getSubscription(); if (subscription) { await pushRepository.softDeleteSubscription(subscription.endpoint); await subscription.unsubscribe() } setSynced(false); setDiagnostics((current) => ({ ...current, write: '已軟刪除訂閱', verification: '已關閉' })); setMessage('每日通知已關閉。') } catch (error) { setDiagnostics((current) => ({ ...current, write: `失敗：${safePushError(error)}` })); setMessage(error instanceof Error ? error.message : '關閉通知失敗。') } finally { setBusy(false) } }
   const sendTest = async () => { setBusy(true); setMessage(''); try { await pushRepository.testPush(); setMessage('已送出測試通知。') } catch (error) { setMessage(error instanceof Error ? error.message : '測試通知失敗。') } finally { setBusy(false) } }
-  return <Section title="每日通知"><div className="form"><p className="muted">固定於台灣時間 06:00 與 23:00 傳送；iOS 推播可能延遲數秒至數分鐘，專注模式可能攔截通知。</p>{unavailable && <p className="notice">iPhone 需 iOS 16.4 以上並從主畫面開啟。</p>}{denied && <p className="notice">通知權限已拒絕。請到 iPhone 設定中允許此 App 傳送通知，再回來開啟。</p>}{!unavailable && !denied && <div className="exports">{!enabled ? <button className="primary" disabled={busy || !import.meta.env.VITE_VAPID_PUBLIC_KEY} onClick={() => void enable()}>開啟每日通知</button> : <><button className="secondary" disabled={busy} onClick={() => void disable()}>關閉通知</button><button className="secondary" disabled={busy} onClick={() => void sendTest()}>傳送測試通知</button></>}</div>}{!import.meta.env.VITE_VAPID_PUBLIC_KEY && !unavailable && !denied && <small>尚未設定公開 VAPID key；設定後即可開啟通知。</small>}{message && <p className="notice">{message}</p>}</div></Section>
+  return <Section title="每日通知"><div className="form"><p className="muted">固定於台灣時間 06:00 與 23:00 傳送；iOS 推播可能延遲數秒至數分鐘，專注模式可能攔截通知。</p>{unavailable && <p className="notice">iPhone 需 iOS 16.4 以上並從主畫面開啟。</p>}{denied && <p className="notice">通知權限已拒絕。請到 iPhone 設定中允許此 App 傳送通知，再回來開啟。</p>}{!unavailable && !denied && <div className="exports">{!synced ? <button className="primary" disabled={busy || !online || !import.meta.env.VITE_VAPID_PUBLIC_KEY} onClick={() => void enable()}>{busy ? '確認訂閱中…' : '開啟每日通知'}</button> : <><button className="secondary" disabled={busy} onClick={() => void disable()}>關閉通知</button><button className="secondary" disabled={busy} onClick={() => void sendTest()}>傳送測試通知</button></>}</div>}{!online && <small>目前離線；推播訂閱需直接寫入 Supabase，不能離線暫存。</small>}{!import.meta.env.VITE_VAPID_PUBLIC_KEY && !unavailable && !denied && <small>尚未設定公開 VAPID key；設定後即可開啟通知。</small>}<div className="push-diagnostics"><small>診斷：登入使用者 {diagnostics.user}</small><small>Supabase 寫入 {diagnostics.write}</small><small>endpoint 讀回驗證 {diagnostics.verification}</small></div>{message && <p className="notice">{message}</p>}</div></Section>
 }
 
 function CategorySettings({ direction, categories, open, remove }: { direction: CategoryDirection; categories: Category[]; open: (m: Modal, item?: unknown) => void; remove: (item: Category) => Promise<void> }) {

@@ -146,25 +146,39 @@ export const financeRepository = {
 }
 
 export const pushRepository = {
-  async activeSubscription() {
-    const { data, error } = await client().from('push_subscriptions').select('*').is('deleted_at', null).maybeSingle()
-    if (error) throw error
-    return data
-  },
-  async saveSubscription(value: { endpoint: string; p256dh: string; auth: string; user_agent: string }) {
-    const existing = await client().from('push_subscriptions').select('id').eq('endpoint', value.endpoint).is('deleted_at', null).maybeSingle()
-    if (existing.error) throw existing.error
-    let current = existing.data
-    if (!current) {
-      const active = await client().from('push_subscriptions').select('id').is('deleted_at', null).limit(1).maybeSingle()
-      if (active.error) throw active.error
-      current = active.data
-    }
-    const request = current
-      ? client().from('push_subscriptions').update(value).eq('id', current.id)
-      : client().from('push_subscriptions').insert(value)
-    const { error } = await request
-    if (error) throw error
+  async saveSubscription(
+    value: { endpoint: string; p256dh: string; auth: string; user_agent: string },
+    onProgress?: (progress: { user?: string; write?: string; verification?: string }) => void,
+  ) {
+    if (!navigator.onLine) throw Object.assign(new Error('目前離線，推播訂閱不會暫存，請連線後重試。'), { stage: 'write', code: 'OFFLINE' })
+    onProgress?.({ user: '正在確認登入狀態' })
+    const { data: authData, error: authError } = await client().auth.getUser()
+    if (authError) throw Object.assign(new Error(authError.message), { stage: 'user', code: authError.code })
+    if (!authData.user) throw Object.assign(new Error('Supabase 找不到目前登入使用者。'), { stage: 'user', code: 'NO_AUTH_USER' })
+    const userId = authData.user.id
+    onProgress?.({ user: '存在', write: '正在查詢此 endpoint' })
+
+    const { data: existing, error: lookupError } = await client()
+      .from('push_subscriptions').select('id,user_id').eq('endpoint', value.endpoint).is('deleted_at', null).maybeSingle()
+    if (lookupError) throw Object.assign(new Error(lookupError.message), { stage: 'write', code: lookupError.code })
+    if (existing && existing.user_id !== userId) throw Object.assign(new Error('查詢到的訂閱不屬於目前登入使用者。'), { stage: 'write', code: 'OWNER_MISMATCH' })
+
+    onProgress?.({ user: '存在', write: existing ? '正在更新訂閱' : '正在新增訂閱' })
+    const { data: written, error: writeError } = existing
+      ? await client().from('push_subscriptions').update(value).eq('id', existing.id).select('id,user_id,endpoint').single()
+      : await client().from('push_subscriptions').insert(value).select('id,user_id,endpoint').single()
+    if (writeError) throw Object.assign(new Error(writeError.message), { stage: 'write', code: writeError.code })
+    if (!written) throw Object.assign(new Error('Supabase 沒有回傳寫入資料。'), { stage: 'write', code: 'NO_WRITE_RESULT' })
+    if (written.user_id !== userId || written.endpoint !== value.endpoint) throw Object.assign(new Error('寫入結果與目前使用者或 endpoint 不符。'), { stage: 'write', code: 'WRITE_MISMATCH' })
+
+    onProgress?.({ user: '存在', write: existing ? '更新成功' : '新增成功', verification: '正在讀回驗證' })
+    const { data: verified, error: verifyError } = await client()
+      .from('push_subscriptions').select('id,user_id,endpoint').eq('endpoint', value.endpoint).is('deleted_at', null).maybeSingle()
+    if (verifyError) throw Object.assign(new Error(verifyError.message), { stage: 'verification', code: verifyError.code })
+    if (!verified) throw Object.assign(new Error('寫入後查不到有效的訂閱資料。'), { stage: 'verification', code: 'NOT_FOUND_AFTER_WRITE' })
+    if (verified.user_id !== userId || verified.endpoint !== value.endpoint) throw Object.assign(new Error('讀回資料與目前使用者或 endpoint 不符。'), { stage: 'verification', code: 'VERIFY_MISMATCH' })
+    onProgress?.({ user: '存在', write: existing ? '更新成功' : '新增成功', verification: '通過' })
+    return { userPresent: true, writeResult: existing ? 'updated' as const : 'inserted' as const, verified: true }
   },
   async softDeleteSubscription(endpoint: string) {
     const { error } = await client().from('push_subscriptions').update({ deleted_at: new Date().toISOString() }).eq('endpoint', endpoint).is('deleted_at', null)

@@ -8,7 +8,7 @@ Migrations：
 > 2026-10-28 `202610280001_quick_transactions.sql`：已套用；新增使用者隔離的快速交易選項資料表及索引，並確認 RLS、政策與 trigger 已建立。
 > 2026-10-28 20:12（台北時間）`202610280002_account_sort_order.sql`：已套用；為帳戶新增 `sort_order`，以既有名稱順序初始化並新增使用者排序索引。已查驗欄位、索引存在，且 accounts RLS 啟用、擁有者政策仍有效。
 > 2026-11-01（台北時間；使用者回報已套用，實際時間未提供）`202611010001_add_stock_shares.sql`：新增可空的 `stocks.shares` bigint 欄位，並限制股數不得小於 0；既有資料不回填。
-> 2026-11-04（待使用者套用，時間未定）`202611040001_push_notifications.sql`：新增具 RLS 的推播訂閱表與有效 endpoint 唯一索引、更新時間 trigger，並從 Vault 設定每日台灣時間 06:00／23:00 的 pg_cron 工作；migration 不包含任何專案 URL 或密鑰值。
+> 2026-11-04（使用者回報已套用，實際時間未提供）`202611040001_push_notifications.sql`：新增具 RLS 的推播訂閱表與有效 endpoint 唯一索引、更新時間 trigger，並從 Vault 設定每日台灣時間 06:00／23:00 的 pg_cron 工作；migration 不包含任何專案 URL 或密鑰值。
 
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
@@ -23,7 +23,7 @@ Migrations：
 - `supabase/migrations/202610280001_quick_transactions.sql`
 - `supabase/migrations/202610280002_account_sort_order.sql`
 - `supabase/migrations/202611010001_add_stock_shares.sql`
-- `supabase/migrations/202611040001_push_notifications.sql`（待套用）
+- `supabase/migrations/202611040001_push_notifications.sql`（使用者回報已套用）
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -60,4 +60,4 @@ Migrations：
 
 `quick_transactions` 僅允許 `income`／`expense`，金額為正整數，關聯帳戶與可選分類，並保存備註。資料以 `user_id`、建立／更新時間與 `deleted_at` 管理，RLS 限制使用者僅能存取自己的快速選項。選取選項只會預填交易表單；使用者按儲存前不會建立交易。202610280001 migration 新增此表與有效資料索引。
 
-`push_subscriptions` 只由登入者管理自己的訂閱；endpoint 有效資料使用部分唯一索引，關閉通知會軟刪除。202611040001 另啟用 pg_cron／pg_net，工作以 Vault 的 `project_url`、`cron_secret` 呼叫 `daily-budget-push`，不在 migration 保存秘密值。此 migration 尚待套用與確認。
+`push_subscriptions` 只由登入者管理自己的訂閱；endpoint 有效資料使用部分唯一索引，關閉通知會軟刪除。202611040001 另啟用 pg_cron／pg_net，工作以 Vault 的 `project_url`、`cron_secret` 呼叫 `daily-budget-push`，不在 migration 保存秘密值；使用者已回報套用。
