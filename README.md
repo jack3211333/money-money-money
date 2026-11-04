@@ -46,7 +46,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 - 獨立主畫面 App：在 Safari 開啟 `https://你的正式網站網址/quick-add.html`，從分享選單選「加入主畫面」。這個圖示會以「快速記帳」名稱安裝，開啟後直接進入新增交易表單。
 - 若尚未登入，先登入後會接續顯示表單。表單不會預填或自動儲存交易。
 
-產品版本維持 1.1；每日額度與 Web Push 功能正在等待 migration 套用及部署驗收，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。通知時間固定為台灣時間 06:00 與 23:00，暫不開放自訂。
+產品版本維持 1.1；每日額度與 Web Push 功能已完成驗收，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。通知時間固定為台灣時間 06:00 與 23:00，暫不開放自訂。
 
 ## GitHub 與 Vercel 部署
 
@@ -57,6 +57,17 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 5. 在 Vercel 的 **Environment Variables** 新增前端變數；每日通知功能另需設定公開的 `VITE_VAPID_PUBLIC_KEY`。只填 Project URL、Publishable key 和公開 VAPID key，絕不填 service role key。
 6. 按 **Deploy**。完成後回 Supabase 的 **Authentication → URL Configuration**，將 Vercel 網址加到 Redirect URLs，並把它設為 Site URL。
 7. 之後推送 GitHub，Vercel 會自動部署。
+
+### 部署每日通知 Edge Functions
+
+先設定 Supabase Edge Function secrets（`VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY`、`VAPID_SUBJECT`、`CRON_SECRET`），再部署：
+
+```sh
+npx supabase functions deploy daily-budget-push --no-verify-jwt --project-ref <REF>
+npx supabase functions deploy push-test --project-ref <REF>
+```
+
+`daily-budget-push` 必須使用 `--no-verify-jwt`，因為 pg_cron 的 `net.http_post` 不會帶 `apikey`；該函式會驗證 `x-cron-secret`。`supabase/config.toml` 對應設定為 `[functions.daily-budget-push] verify_jwt = false`；`push-test` 維持 JWT 驗證，部署時不加 `--no-verify-jwt`。
 
 ## 備份
 

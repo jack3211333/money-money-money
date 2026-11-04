@@ -5,9 +5,12 @@
 - 1.1 延續 1.0／1.01 已完成的功能，並納入股數與收盤價估值流程、快速記帳，以及單筆支出 Top 10；目前版本已通過本機正式建置與 Vercel Production 部署確認。
 - 功能涵蓋登入與跨裝置同步、帳戶與分類、收支及轉帳、報表、資產與負債、財務推演、CSV、PWA 與輕量離線交易。
 
-## 1.1 後續維護需求（2026-11-04）
+## 1.1 每日額度與通知（2026-11-04，已完成驗收）
 
-- 新增每日額度總覽與每日 Web Push 通知；產品版本號不變。Migration `202611040001_push_notifications.sql` 已由使用者回報套用，程式已推送；後續修正訂閱寫入驗證與診斷中，尚待部署狀態及實機推播驗收。
+- 每日額度總覽與 iPhone Web Push 通知已上線；使用者已確認收到測試通知與早晨推播。產品版本號維持 1.1。Migration `202611040001_push_notifications.sql` 已由使用者回報套用。
+- 排查紀錄：Vercel 的 `VITE_VAPID_PUBLIC_KEY` 曾貼錯，造成 `pushManager.subscribe` 回報 “The string contains invalid characters”。
+- 排查紀錄：訂閱寫入原先未檢查結果，畫面曾顯示成功但資料表沒有資料；現已直接寫入 Supabase 並讀回驗證。
+- 排查紀錄：pg_cron 呼叫曾被 Supabase 閘道要求 `apikey` 而失敗；`daily-budget-push` 加上 `--no-verify-jwt` 重新部署後解決，函式本身以 `x-cron-secret` 驗證排程呼叫。
 - 額度使用台灣日期：下月推演 `expenses + stockContribution` 扣除本月截至昨日的有效支出，再除以含今天的剩餘日數並無條件捨去。晚間通知以今日支出除以額度四捨五入為百分比。
 - 通知時間固定為台灣時間 06:00 與 23:00，暫不開放自訂。iOS 推播為 best effort，早晨通知可能延遲數秒至數分鐘；專注模式可能攔截通知。
 
