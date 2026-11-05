@@ -400,6 +400,19 @@ function TransactionDialog({ data, item, close, done, offline, queue }: { data: 
   const [note, setNote] = useState(item?.note ?? '')
   const [transferFee, setTransferFee] = useState(String(item?.transferFee ?? 0))
   const [showQuickTransactions, setShowQuickTransactions] = useState(false)
+  const budget = dailyBudget(data)
+  const currentBudgetPercent = budget.quota > 0 ? Math.round(budget.spentToday / budget.quota * 100) : null
+  const enteredExpenseAmount = kind === 'expense' && date === dateToday() && amount !== '' && Number(amount) > 0
+  const projectedSpentToday = budget.spentToday + Number(amount)
+  const budgetWarning = !item?.id && enteredExpenseAmount
+    ? budget.quota === 0
+      ? '今日額度已用完'
+      : budget.quota > 0 && projectedSpentToday === budget.quota
+        ? '今日額度將會達到100%'
+        : budget.quota > 0 && projectedSpentToday > budget.quota
+          ? `今日額度將會超支${Math.max(1, Math.round((projectedSpentToday - budget.quota) / budget.quota * 100))}%`
+          : ''
+    : ''
   const feeCategory = data.categories.find((child) => child.name === '手續費' && !child.deleted_at && child.parent_id && data.categories.some((parent) => parent.id === child.parent_id && parent.name === '金融/政府' && parent.direction === 'expense' && !parent.deleted_at))
   const { busy, error, save } = useSave(done)
   const submit = (event: FormEvent) => { event.preventDefault(); void save(async () => {
@@ -432,6 +445,7 @@ function TransactionDialog({ data, item, close, done, offline, queue }: { data: 
   return <Dialog title={item ? '編輯交易' : '新增交易'} close={close} action={<button type="button" className="text quick-transaction-trigger" aria-expanded={showQuickTransactions} onClick={() => setShowQuickTransactions((value) => !value)}>新增快速交易</button>}><form className="form" onSubmit={submit}>
     {showQuickTransactions && <div className="quick-transaction-menu">{usableQuickTransactions.length ? usableQuickTransactions.map((quick) => { const categoryItem = data.categories.find((candidate) => candidate.id === quick.category_id); const title = [quick.kind === 'income' ? '收入' : '支出', categoryItem ? categoryName(categoryItem, data.categories) : '', quick.note].filter(Boolean).join(' · '); return <button type="button" className="quick-transaction-option" key={quick.id} onClick={() => applyQuickTransaction(quick)}><span>{title}</span><small>{twd(quick.amount)}</small></button> }) : <p className="empty">尚無快速交易，請先到交易頁新增選項。</p>}</div>}
     {offline && <p className="notice offline">離線新增會在恢復連線後自動同步。</p>}<div className="tabs">{[['expense', '支出'], ['income', '收入'], ...(offline ? [] : [['transfer', '轉帳']])].map(([value, label]) => <button type="button" className={kind === value ? 'selected' : ''} onClick={() => changeKind(value)} key={value}>{label}</button>)}</div>
+    {!item?.id && <div className="daily-budget-summary"><small>今日已支出 {twd(budget.spentToday)}</small><small>今日可支出額度 {twd(budget.quota)}</small>{currentBudgetPercent !== null && <small>目前使用 {currentBudgetPercent}%</small>}{budgetWarning && <small className="danger" role="status">{budgetWarning}</small>}</div>}
     <label>金額（TWD）<input autoFocus required inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ''))} /></label>
     <label>日期<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
     <Accounts data={data} value={account} change={setAccount} label={kind === 'transfer' ? '轉出帳戶' : '帳戶'} showBalances={!item?.id} onSelect={!item?.id && kind !== 'transfer' ? () => setCategoryOpenRequest((value) => value + 1) : undefined} />

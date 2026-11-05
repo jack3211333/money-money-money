@@ -29,3 +29,4 @@
 .transaction-filters label{display:grid;gap:6px;color:#9cabb9;font-size:12px}
 .transaction-filters input{min-width:0;width:100%;padding:10px;border:1px solid #354351;border-radius:10px;background:#11161d;color:#edf4f8}
 @media(max-width:620px){.transaction-filters,.report-period-inputs{grid-template-columns:1fr 1fr}.transaction-metrics{gap:7px}.transaction-metrics .metric{padding:10px}.transaction-metrics .metric b{font-size:14px}.report-pie-content{grid-template-columns:1fr}.pie{width:136px}.report-trend-item{min-width:27px}}@media(max-width:420px){.transaction-filters,.report-period-inputs{grid-template-columns:1fr}.range-actions{flex-wrap:wrap}.toolbar{align-items:flex-start;gap:7px;flex-wrap:wrap}.toolbar-actions{flex-wrap:wrap;justify-content:flex-end}}
+.daily-budget-summary{display:flex;flex-wrap:wrap;gap:5px 14px;padding:0 2px}.daily-budget-summary small{font-size:12px}.daily-budget-summary .danger{color:#ffaaaa}
