@@ -12,7 +12,7 @@ import { authRepository, financeRepository, pushRepository } from './data/reposi
 import { offlineStore, type FailedTransaction, type PendingTransaction } from './data/offline'
 import { isSupabaseConfigured } from './data/supabase'
 import { emptySnapshot, type Account, type Category, type CategoryDirection, type FinanceSnapshot, type ForecastEvent, type Liability, type QuickTransaction, type Stock, type Transaction } from './data/types'
-import { accountBalance, dailyBudget, dateToday, financialTotals, liabilityBalance, paymentForRate, rateForPayment, stockValue, twd } from './lib/finance'
+import { accountBalance, dailyBudget, netWorthRowsToSave, dateToday, financialTotals, liabilityBalance, paymentForRate, rateForPayment, stockValue, twd } from './lib/finance'
 
 type Page = 'home' | 'transactions' | 'reports' | 'assets' | 'forecast' | 'settings'
 type Modal = 'transaction' | 'quickTransactions' | 'account' | 'category' | 'liability' | 'stock' | 'recurring' | 'investment' | 'forecastEvent' | null
@@ -26,7 +26,19 @@ export default function App() {
   const [launchNewTransaction, setLaunchNewTransaction] = useState(() => new URLSearchParams(window.location.search).get('action') === 'new-transaction')
   const refreshLocal = async (current = user) => { if (!current) return; const [pendingRows, failedRows] = await Promise.all([offlineStore.pending(current.id), offlineStore.failed(current.id)]); setPending(pendingRows); setFailed(failedRows) }
   const mergePending = (snapshot: FinanceSnapshot, rows: PendingTransaction[]): FinanceSnapshot => ({ ...emptySnapshot, ...snapshot, quickTransactions: snapshot.quickTransactions ?? [], transactions: [...snapshot.transactions, ...rows.map((row) => ({ ...row, created_at: row.queued_at, updated_at: row.queued_at, deleted_at: null }))] })
-  const reload = async () => { if (!user) return; try { const snapshot = await financeRepository.snapshot(); await offlineStore.saveSnapshot(user.id, snapshot); const rows = await offlineStore.pending(user.id); setPending(rows); setData(mergePending(snapshot, rows)); setMessage('') } catch (error) { const cached = await offlineStore.snapshot(user.id); const rows = await offlineStore.pending(user.id); setPending(rows); if (cached) setData(mergePending(cached, rows)); setMessage('目前離線，顯示最後同步資料。') } }
+  const recordNetWorth = async (snapshot: FinanceSnapshot) => {
+    if (!user) return
+    try {
+      const rows = netWorthRowsToSave(snapshot)
+      if (!rows.length) return
+      const saved = await financeRepository.upsertNetWorthSnapshots(rows.map((row) => ({ ...row, user_id: user.id })))
+      const months = new Set(saved.map((row) => row.snapshot_month))
+      const netWorthSnapshots = [...snapshot.netWorthSnapshots.filter((row) => !months.has(row.snapshot_month)), ...saved].sort((a, b) => a.snapshot_month.localeCompare(b.snapshot_month))
+      await offlineStore.saveSnapshot(user.id, { ...snapshot, netWorthSnapshots })
+      setData((current) => ({ ...current, netWorthSnapshots }))
+    } catch (error) { console.warn('淨資產快照寫入失敗', error) }
+  }
+  const reload = async () => { if (!user) return; try { const snapshot = await financeRepository.snapshot(); await offlineStore.saveSnapshot(user.id, snapshot); const rows = await offlineStore.pending(user.id); setPending(rows); setData(mergePending(snapshot, rows)); setMessage(''); if (!rows.length) void recordNetWorth(snapshot) } catch (error) { const cached = await offlineStore.snapshot(user.id); const rows = await offlineStore.pending(user.id); setPending(rows); if (cached) setData(mergePending(cached, rows)); setMessage('目前離線，顯示最後同步資料。') } }
   const sync = async () => {
     if (!user || !navigator.onLine) return
     const work = async () => {
@@ -236,7 +248,7 @@ function Settings({ data, open, reload, logout, user, online }: { data: FinanceS
   }
   const removeAccount = async (id: string) => { if (confirm('確定要刪除嗎？')) { await financeRepository.softDelete('accounts', id); await reload() } }
   const removeCategory = async (item: Category) => { const children = activeCategories(data.categories).filter((c) => c.parent_id === item.id).length; const wording = children ? `這會同時刪除 ${children} 個小分類，確定嗎？` : '確定要刪除這個分類嗎？'; if (confirm(wording)) { await financeRepository.softDeleteCategory(item.id); await reload() } }
-  return <><PushSettings user={user} online={online} /><Section title="帳戶" action="新增" click={() => open('account')}><div className="list">{data.accounts.map((item, index) => <div className="row" key={item.id}><AccountIcon iconKey={item.icon_key} /><span><b>{item.name}</b><small>{accountKinds[item.kind]} {item.is_archived ? '· 已封存' : ''}</small></span><button className="text" disabled={index === 0} aria-label={`將${item.name}上移`} onClick={() => void moveAccount(index, -1)}>上移</button><button className="text" disabled={index === data.accounts.length - 1} aria-label={`將${item.name}下移`} onClick={() => void moveAccount(index, 1)}>下移</button><button className="text" onClick={() => open('account', item)}>編輯</button><button className="text danger" onClick={() => void removeAccount(item.id)}>刪除</button></div>)}</div></Section>{(['income', 'expense'] as CategoryDirection[]).map((direction) => <CategorySettings key={direction} direction={direction} categories={data.categories} open={open} remove={removeCategory} />)}<Section title="CSV 匯出"><div className="exports">{(['transactions', 'accounts', 'liabilities', 'stocks'] as const).map((key) => <button className="secondary" key={key} onClick={() => downloadCsv(key, data)}>{({ transactions: '交易', accounts: '帳戶', liabilities: '負債', stocks: '股票' })[key]}</button>)}</div></Section><PasswordSettings /><button className="signout" onClick={() => void logout()}>登出</button></>
+  return <><PushSettings user={user} online={online} /><Section title="帳戶" action="新增" click={() => open('account')}><div className="list">{data.accounts.map((item, index) => <div className="row" key={item.id}><AccountIcon iconKey={item.icon_key} /><span><b>{item.name}</b><small>{accountKinds[item.kind]} {item.is_archived ? '· 已封存' : ''}</small></span><button className="text" disabled={index === 0} aria-label={`將${item.name}上移`} onClick={() => void moveAccount(index, -1)}>上移</button><button className="text" disabled={index === data.accounts.length - 1} aria-label={`將${item.name}下移`} onClick={() => void moveAccount(index, 1)}>下移</button><button className="text" onClick={() => open('account', item)}>編輯</button><button className="text danger" onClick={() => void removeAccount(item.id)}>刪除</button></div>)}</div></Section>{(['income', 'expense'] as CategoryDirection[]).map((direction) => <CategorySettings key={direction} direction={direction} categories={data.categories} open={open} remove={removeCategory} />)}<Section title="CSV 匯出"><div className="exports">{(['transactions', 'accounts', 'liabilities', 'stocks', 'netWorthSnapshots'] as const).map((key) => <button className="secondary" key={key} onClick={() => downloadCsv(key, data)}>{({ transactions: '交易', accounts: '帳戶', liabilities: '負債', stocks: '股票', netWorthSnapshots: '淨資產紀錄' })[key]}</button>)}</div></Section><PasswordSettings /><button className="signout" onClick={() => void logout()}>登出</button></>
 }
 
 function PushSettings({ user, online }: { user: User | null; online: boolean }) {
@@ -664,4 +676,4 @@ function InvestmentDialog({ data, item, close, done }: { data: FinanceSnapshot; 
     {error && <p className="notice error">{error}</p>}<Footer close={close} busy={busy} />
   </form></Dialog>
 }
-function downloadCsv(key: 'transactions' | 'accounts' | 'liabilities' | 'stocks', data: FinanceSnapshot) { const rows = data[key] as unknown as Record<string, unknown>[]; const headers = rows[0] ? Object.keys(rows[0]) : []; const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => `"${String(row[header] ?? '').replaceAll('"', '""')}"`).join(','))].join('\r\n'); const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }); const href = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = href; link.download = `${key}-${dateToday()}.csv`; link.click(); URL.revokeObjectURL(href) }
+function downloadCsv(key: 'transactions' | 'accounts' | 'liabilities' | 'stocks' | 'netWorthSnapshots', data: FinanceSnapshot) { const rows = data[key] as unknown as Record<string, unknown>[]; const headers = rows[0] ? Object.keys(rows[0]) : []; const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => `"${String(row[header] ?? '').replaceAll('"', '""')}"`).join(','))].join('\r\n'); const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }); const href = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = href; link.download = `${key}-${dateToday()}.csv`; link.click(); URL.revokeObjectURL(href) }

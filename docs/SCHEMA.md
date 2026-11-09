@@ -1,6 +1,6 @@
 # 資料表結構
 
-此文件記錄 Money Money Money 1.1 的 Supabase schema 與 migration 沿革。1.1 延續既有 schema，股數欄位 migration 已列於下方；後續僅在有新需求時規劃資料庫變更。
+此文件記錄 Money Money Money 1.2 的 Supabase schema 與 migration 沿革。1.1 延續既有 schema，股數欄位 migration 已列於下方；後續僅在有新需求時規劃資料庫變更。
 
 Migrations：
 
@@ -9,6 +9,7 @@ Migrations：
 > 2026-10-28 20:12（台北時間）`202610280002_account_sort_order.sql`：已套用；為帳戶新增 `sort_order`，以既有名稱順序初始化並新增使用者排序索引。已查驗欄位、索引存在，且 accounts RLS 啟用、擁有者政策仍有效。
 > 2026-11-01（台北時間；使用者回報已套用，實際時間未提供）`202611010001_add_stock_shares.sql`：新增可空的 `stocks.shares` bigint 欄位，並限制股數不得小於 0；既有資料不回填。
 > 2026-11-04（使用者回報已套用，實際時間未提供）`202611040001_push_notifications.sql`：新增具 RLS 的推播訂閱表與有效 endpoint 唯一索引、更新時間 trigger，並從 Vault 設定每日台灣時間 06:00／23:00 的 pg_cron 工作；migration 不包含任何專案 URL 或密鑰值。
+> 2026-11-09 20:48（台北時間）`202611090001_net_worth_snapshots.sql`：已透過 Supabase Management API 套用，重複執行無誤；新增 `net_worth_snapshots`，`(user_id, snapshot_month)` 唯一、RLS 政策、`updated_at` trigger 與索引均已查驗存在。
 
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
@@ -24,6 +25,7 @@ Migrations：
 - `supabase/migrations/202610280002_account_sort_order.sql`
 - `supabase/migrations/202611010001_add_stock_shares.sql`
 - `supabase/migrations/202611040001_push_notifications.sql`（使用者回報已套用）
+- `supabase/migrations/202611090001_net_worth_snapshots.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -37,6 +39,7 @@ Migrations：
 | `recurring_rules` | 僅供推演的固定收入或支出；保留可選分類，不分配至帳戶。 |
 | `investment_plans` | 僅供推演的每月股票持續投入；連結股票，不指定扣款帳戶。 |
 | `forecast_events` | 僅供推演的一次性收入或支出；記錄日期、項目與金額，不分配至帳戶。 |
+| `net_worth_snapshots` | 每位使用者每月一筆淨資產快照：現金、股票、負債、淨資產（TWD 整數元）與是否為推算值。 |
 
 所有表均有 UUID `id`、`user_id`、`created_at`、`updated_at`、`deleted_at`。金額使用 `bigint`（TWD 整數元）；所有表均啟用 RLS，政策限定 `auth.uid() = user_id`。
 
@@ -61,3 +64,5 @@ Migrations：
 `quick_transactions` 僅允許 `income`／`expense`，金額為正整數，關聯帳戶與可選分類，並保存備註。資料以 `user_id`、建立／更新時間與 `deleted_at` 管理，RLS 限制使用者僅能存取自己的快速選項。選取選項只會預填交易表單；使用者按儲存前不會建立交易。202610280001 migration 新增此表與有效資料索引。
 
 `push_subscriptions` 只由登入者管理自己的訂閱；endpoint 有效資料使用部分唯一索引，關閉通知會軟刪除。202611040001 另啟用 pg_cron／pg_net，工作以 Vault 的 `project_url`、`cron_secret` 呼叫 `daily-budget-push`，不在 migration 保存秘密值；使用者已回報套用。
+
+`net_worth_snapshots` 的 `snapshot_month` 必須是當月 1 日，`(user_id, snapshot_month)` 為唯一限制（供 App upsert）；`stocks`、`liabilities` 不得為負，`net_worth` 必須等於 `cash + stocks - liabilities`。`is_estimated=true` 代表依月底推算的補齊值（股票以目前估值基準估算），會隨補記交易更新；`false` 為 App 實際記錄的本月值，跨月後不再覆蓋。

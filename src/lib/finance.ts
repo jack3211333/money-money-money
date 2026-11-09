@@ -1,4 +1,4 @@
-import type { Account, FinanceSnapshot, Liability, Stock, Transaction } from '../data/types'
+import type { Account, FinanceSnapshot, Liability, NetWorthSnapshot, Stock, Transaction } from '../data/types'
 
 export const twd = (value: number) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(value)
 export const dateToday = () => {
@@ -144,4 +144,64 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
     const expenses = expenseItems.reduce((sum, item) => sum + item.amount, 0)
     return { label: `${month.getFullYear()}/${String(monthNumber).padStart(2, '0')}`, income, expenses, expenseItems, monthlyNet: income - expenses - stockContribution, cash, stocks, stockContribution, cumulativeReturn: stocks - initialStockValue - cumulativeContribution, liabilities, netWorth: cash + stocks - liabilities }
   })
+}
+
+// ── 淨資產月快照 ──
+// 本月以總覽相同的 financialTotals 記錄實際值；過去月份若沒有實際紀錄，依當月月底推算（is_estimated）。
+// 推算：現金與負債可由交易與攤還公式精確還原；股票沒有歷史股價，只能以目前估值基準估算。
+export type NetWorthValues = Pick<NetWorthSnapshot, 'cash' | 'stocks' | 'liabilities' | 'net_worth'>
+export type NetWorthRow = NetWorthValues & Pick<NetWorthSnapshot, 'snapshot_month' | 'is_estimated'>
+
+const NET_WORTH_MAX_MONTHS = 120
+const roundedValues = (cash: number, stocks: number, liabilities: number): NetWorthValues => {
+  const values = { cash: Math.round(cash), stocks: Math.max(0, Math.round(stocks)), liabilities: Math.max(0, Math.round(liabilities)) }
+  return { ...values, net_worth: values.cash + values.stocks - values.liabilities }
+}
+const taipeiDate = (timestamp: string) => timestamp ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(timestamp)) : '0000-01-01'
+export const lastDayOfMonth = (month: string) => {
+  const [year, value] = month.split('-').map(Number)
+  return `${month}-${String(new Date(Date.UTC(year, value, 0)).getUTCDate()).padStart(2, '0')}`
+}
+const addMonths = (month: string, offset: number) => {
+  const [year, value] = month.split('-').map(Number)
+  const next = new Date(Date.UTC(year, value - 1 + offset, 1))
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+export const currentNetWorth = (snapshot: FinanceSnapshot): NetWorthValues => {
+  const totals = financialTotals(snapshot)
+  return roundedValues(totals.cash, totals.stocks, totals.liabilities)
+}
+
+export const estimatedNetWorthAt = (snapshot: FinanceSnapshot, date: string): NetWorthValues => {
+  const openings = snapshot.accounts.filter((account) => taipeiDate(account.created_at) <= date).reduce((sum, account) => sum + account.opening_balance, 0)
+  const movements = snapshot.transactions.filter((transaction) => transaction.transaction_date <= date).reduce((sum, transaction) => sum + signedAmount(transaction), 0)
+  const stocks = snapshot.stocks.filter((stock) => taipeiDate(stock.created_at) <= date).reduce((sum, stock) => sum + stockValue(stock, date), 0)
+  const liabilities = snapshot.liabilities.filter((liability) => liability.start_date <= date).reduce((sum, liability) => sum + liabilityBalance(liability, date), 0)
+  return roundedValues(openings + movements, stocks, liabilities)
+}
+
+const sameValues = (a: NetWorthValues, b: NetWorthValues) => a.cash === b.cash && a.stocks === b.stocks && a.liabilities === b.liabilities && a.net_worth === b.net_worth
+
+// 回傳需要寫入的列：本月實際值有變動時更新；過去月份沒有實際紀錄者補上推算值（推算值有變動時也會更新）。
+export const netWorthRowsToSave = (snapshot: FinanceSnapshot, today = dateToday()): NetWorthRow[] => {
+  const currentMonth = today.slice(0, 7)
+  const existing = new Map(snapshot.netWorthSnapshots.map((row) => [row.snapshot_month.slice(0, 7), row]))
+  const starts = [
+    ...snapshot.transactions.map((transaction) => transaction.transaction_date.slice(0, 7)),
+    ...snapshot.accounts.map((account) => taipeiDate(account.created_at).slice(0, 7)),
+  ].filter((month) => month >= '1900-01' && month <= currentMonth).sort()
+  let month = starts[0] && starts[0] > addMonths(currentMonth, -NET_WORTH_MAX_MONTHS) ? starts[0] : addMonths(currentMonth, -NET_WORTH_MAX_MONTHS)
+  if (!starts.length) month = currentMonth
+  const rows: NetWorthRow[] = []
+  for (; month < currentMonth; month = addMonths(month, 1)) {
+    const saved = existing.get(month)
+    if (saved && !saved.is_estimated) continue
+    const values = estimatedNetWorthAt(snapshot, lastDayOfMonth(month))
+    if (!saved || !sameValues(saved, values)) rows.push({ snapshot_month: `${month}-01`, is_estimated: true, ...values })
+  }
+  const saved = existing.get(currentMonth)
+  const values = currentNetWorth(snapshot)
+  if (!saved || saved.is_estimated || !sameValues(saved, values)) rows.push({ snapshot_month: `${currentMonth}-01`, is_estimated: false, ...values })
+  return rows
 }

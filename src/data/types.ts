@@ -14,6 +14,7 @@ export type Stock = BaseRecord & { account_id: string | null; ticker: string; sh
 export type RecurringRule = BaseRecord & { name: string; kind: RecurringKind; amount: number; category_id: string | null; interval_months: number; day_of_month: number; start_date: string; end_date: string | null; is_active: boolean }
 export type InvestmentPlan = BaseRecord & { name: string; stock_id: string; monthly_amount: number; day_of_month: number; start_date: string; end_date: string | null; is_active: boolean }
 export type ForecastEvent = BaseRecord & { name: string; kind: 'income' | 'expense'; amount: number; event_date: string }
+export type NetWorthSnapshot = BaseRecord & { snapshot_month: string; cash: number; stocks: number; liabilities: number; net_worth: number; is_estimated: boolean }
 
-export type FinanceSnapshot = { accounts: Account[]; categories: Category[]; transactions: Transaction[]; quickTransactions: QuickTransaction[]; liabilities: Liability[]; stocks: Stock[]; recurringRules: RecurringRule[]; investmentPlans: InvestmentPlan[]; forecastEvents: ForecastEvent[] }
-export const emptySnapshot: FinanceSnapshot = { accounts: [], categories: [], transactions: [], quickTransactions: [], liabilities: [], stocks: [], recurringRules: [], investmentPlans: [], forecastEvents: [] }
+export type FinanceSnapshot = { accounts: Account[]; categories: Category[]; transactions: Transaction[]; quickTransactions: QuickTransaction[]; liabilities: Liability[]; stocks: Stock[]; recurringRules: RecurringRule[]; investmentPlans: InvestmentPlan[]; forecastEvents: ForecastEvent[]; netWorthSnapshots: NetWorthSnapshot[] }
+export const emptySnapshot: FinanceSnapshot = { accounts: [], categories: [], transactions: [], quickTransactions: [], liabilities: [], stocks: [], recurringRules: [], investmentPlans: [], forecastEvents: [], netWorthSnapshots: [] }

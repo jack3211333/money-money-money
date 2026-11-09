@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Category, FinanceSnapshot, Transaction } from './data/types'
 import { dateToday, twd } from './lib/finance'
+import { NetWorthTrend } from './NetWorthTrend'
 
 type RangeMode = 'month' | 'recent3' | 'recent12' | 'custom'
 type Breakdown = { id: string; name: string; color: string; amount: number }
@@ -86,6 +87,7 @@ export function Reports({ data }: { data: FinanceSnapshot }) {
   const trend = useMemo(() => makeTrend(transactions, start, end), [end, start, transactions])
   const chooseMode = (next: RangeMode) => { setMode(next); setExpenseRootId(null) }
   return <>
+    <NetWorthTrend snapshots={data.netWorthSnapshots ?? []} />
     <section className="report-controls"><div className="range-actions"><button type="button" className={mode === 'month' && month === today.slice(0, 7) ? 'secondary selected-range' : 'secondary'} onClick={() => { setMonth(today.slice(0, 7)); chooseMode('month') }}>本月</button><button type="button" className={mode === 'recent3' ? 'secondary selected-range' : 'secondary'} onClick={() => chooseMode('recent3')}>近三月</button><button type="button" className={mode === 'recent12' ? 'secondary selected-range' : 'secondary'} onClick={() => chooseMode('recent12')}>近十二月</button></div><div className="report-period-inputs"><label>整月<select value={month} onChange={(event) => { setMonth(event.target.value); chooseMode('month') }}>{monthOptions(today).map((item) => <option value={item} key={item}>{item.replace('-', ' 年 ')} 月</option>)}</select></label><label>自訂起日<input type="date" value={customStart} onChange={(event) => { setCustomStart(event.target.value || today); chooseMode('custom') }} /></label><label>自訂迄日<input type="date" min={customStart} value={customEnd} onChange={(event) => { setCustomEnd(event.target.value || customStart); chooseMode('custom') }} /></label></div><small className="report-period-label">目前範圍：{rangeLabel(mode, month, start, end)}</small>
     </section>
     <div className="metrics transaction-metrics report-metrics"><Metric title="總支出" value={twd(totals.expense)} /><Metric title="總收入" value={twd(totals.income)} /><Metric title="淨收入" value={twd(totals.income - totals.expense)} /></div>

@@ -1,10 +1,10 @@
-# Money Money Money 1.1
+# Money Money Money 1.2
 
-**正式版 1.1 已完成。** 這是一個手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入；所有功能均已驗收，目前沒有排定的後續版本計畫。
+**正式版 1.2 已完成。** 這是一個手機優先的個人記帳 PWA，使用 Supabase 雲端同步與 Email＋密碼登入；所有功能均已驗收，目前沒有排定的後續版本計畫。
 
 專案決策沿革見 [`docs/DECISIONS.md`](docs/DECISIONS.md)，資料庫結構見 [`docs/SCHEMA.md`](docs/SCHEMA.md)。
 
-使用說明：[使用手冊](output/pdf/money-money-money-1.1-user-guide.pdf)；技術架構：[技術手冊](output/pdf/money-money-money-1.1-technical-guide.pdf)。
+使用說明（1.1 版內容）：[使用手冊](output/pdf/money-money-money-1.1-user-guide.pdf)；技術架構：[技術手冊](output/pdf/money-money-money-1.1-technical-guide.pdf)。
 
 ## 本機啟動
 
@@ -34,6 +34,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 ## 功能範圍
 
 - 帳戶、階層分類、收入／支出／轉帳、日期搜尋與 CSV 匯出。
+- 報表頁的淨資產走勢：每月一筆淨資產快照，可看近 12 個月或全部；過去月份以推算值補齊並標示。
 - 報表、負債、股票資產、固定收支、持續投入與 12 個月財務推演。
 - 可安裝 PWA、離線 app shell、離線新增收入／支出、恢復連線同步及 App 內失敗通知。
 - 總覽顯示下月推演支出與本日可支出額度；主 App 可設定台灣時間 06:00／23:00 Web Push 每日通知。iOS 推播為 best effort，06:00 可能延遲數秒至數分鐘，專注模式可能攔截通知。
@@ -46,7 +47,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 - 獨立主畫面 App：在 Safari 開啟 `https://你的正式網站網址/quick-add.html`，從分享選單選「加入主畫面」。這個圖示會以「快速記帳」名稱安裝，開啟後直接進入新增交易表單。
 - 若尚未登入，先登入後會接續顯示表單。表單不會預填或自動儲存交易。
 
-產品版本維持 1.1；每日額度與 Web Push 功能已完成驗收，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。通知時間固定為台灣時間 06:00 與 23:00，暫不開放自訂。
+產品版本為 1.2；每日額度與 Web Push 功能已完成驗收，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。通知時間固定為台灣時間 06:00 與 23:00，暫不開放自訂。
 
 ## GitHub 與 Vercel 部署
 
@@ -71,7 +72,7 @@ npx supabase functions deploy push-test --project-ref <REF>
 
 ## 備份
 
-- 日常：設定頁可將交易、帳戶、負債、股票各自匯出為 UTF-8 with BOM CSV，建議每月備份到自己的加密雲端硬碟。
+- 日常：設定頁可將交易、帳戶、負債、股票、淨資產紀錄各自匯出為 UTF-8 with BOM CSV，建議每月備份到自己的加密雲端硬碟。
 - 完整資料庫：Supabase 專案的 **Database → Backups** 可建立或下載資料庫備份；免費方案可用性依方案而異。重要資料應同時保留 CSV 匯出。
 
 ## 安全

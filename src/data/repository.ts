@@ -1,8 +1,8 @@
 import type { User } from '@supabase/supabase-js'
-import { emptySnapshot, type Account, type Category, type FinanceSnapshot, type ForecastEvent, type InvestmentPlan, type Liability, type QuickTransaction, type RecurringRule, type Stock, type Transaction } from './types'
+import { emptySnapshot, type Account, type Category, type FinanceSnapshot, type ForecastEvent, type InvestmentPlan, type NetWorthSnapshot, type Liability, type QuickTransaction, type RecurringRule, type Stock, type Transaction } from './types'
 import { supabase } from './supabase'
 
-type TableName = 'accounts' | 'categories' | 'transactions' | 'quick_transactions' | 'liabilities' | 'stocks' | 'recurring_rules' | 'investment_plans' | 'forecast_events'
+type TableName = 'accounts' | 'categories' | 'transactions' | 'quick_transactions' | 'liabilities' | 'stocks' | 'recurring_rules' | 'investment_plans' | 'forecast_events' | 'net_worth_snapshots'
 type Create<T> = Omit<T, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'deleted_at'>
 
 const client = () => {
@@ -77,14 +77,15 @@ export const financeRepository = {
     if (!supabase) return emptySnapshot
     const { error: categorySeedError } = await client().rpc('ensure_default_categories')
     if (categorySeedError) throw categorySeedError
-    const [accounts, categories, transactions, quickTransactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents] = await Promise.all([
+    const [accounts, categories, transactions, quickTransactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents, netWorthSnapshots] = await Promise.all([
       active<Account>('accounts', 'sort_order'), all<Category>('categories', 'sort_order'), active<Transaction>('transactions', 'transaction_date'),
       active<QuickTransaction>('quick_transactions', 'created_at'),
       active<Liability>('liabilities', 'start_date'), active<Stock>('stocks', 'ticker'), active<RecurringRule>('recurring_rules', 'name'),
       active<InvestmentPlan>('investment_plans', 'name'),
       active<ForecastEvent>('forecast_events', 'event_date'),
+      active<NetWorthSnapshot>('net_worth_snapshots', 'snapshot_month'),
     ])
-    return { accounts, categories, transactions, quickTransactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents }
+    return { accounts, categories, transactions, quickTransactions, liabilities, stocks, recurringRules, investmentPlans, forecastEvents, netWorthSnapshots }
   },
   async saveAccount(value: Partial<Account> & Create<Account>) {
     if (value.id || value.sort_order !== undefined) return save<Account>('accounts', value)
@@ -130,6 +131,12 @@ export const financeRepository = {
   },
   async updateTransfer(groupId: string, input: { transactionDate: string; amount: number; fromAccountId: string; toAccountId: string; note: string; transferFee: number; feeCategoryId: string | null }) {
     await this.saveTransfer({ ...input, groupId })
+  },
+  async upsertNetWorthSnapshots(rows: (Pick<NetWorthSnapshot, 'user_id' | 'snapshot_month' | 'cash' | 'stocks' | 'liabilities' | 'net_worth' | 'is_estimated'>)[]) {
+    if (!rows.length) return [] as NetWorthSnapshot[]
+    const { data, error } = await client().from('net_worth_snapshots').upsert(rows.map((row) => ({ ...row, deleted_at: null })) as never, { onConflict: 'user_id,snapshot_month' }).select()
+    if (error) throw error
+    return data as NetWorthSnapshot[]
   },
   async softDelete(table: TableName, id: string) {
     const { error } = await client().from(table).update({ deleted_at: new Date().toISOString() }).eq('id', id)
