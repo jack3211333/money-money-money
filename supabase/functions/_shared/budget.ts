@@ -1,7 +1,7 @@
 export type Row = { id: string; user_id?: string; deleted_at?: string | null }
 export type Tx = Row & { transaction_date: string; amount: number; kind: string }
 export type Rule = Row & { name: string; kind: 'income' | 'expense'; amount: number; interval_months: number; start_date: string; end_date: string | null; is_active: boolean }
-export type Event = Row & { name: string; kind: 'income' | 'expense'; amount: number; event_date: string }
+export type Event = Row & { name: string; kind: 'income' | 'expense'; amount: number; event_date: string; account_id?: string | null }
 export type Debt = Row & { name: string; principal: number; annual_rate_bps: number; monthly_payment: number; term_months: number; start_date: string }
 export type Stock = Row & { id: string; valuation_amount: number; valuation_date: string; annual_return_bps: number }
 export type Plan = Row & { stock_id: string; monthly_amount: number; start_date: string; end_date: string | null; is_active: boolean }
@@ -31,7 +31,8 @@ export const forecastFirstMonth = (snapshot: BudgetSnapshot, today = taipeiToday
     const elapsed = monthsBetween(rule.start_date, end)
     if (rule.is_active && rule.start_date <= end && (!rule.end_date || rule.end_date >= `${key}-01`) && elapsed % rule.interval_months === 0 && rule.kind === 'expense') expenses += rule.amount
   }
-  for (const event of snapshot.forecastEvents) if (event.event_date.startsWith(key) && event.event_date >= today && event.kind === 'expense') expenses += event.amount
+  // 信用卡帳單（account_id 連結）是本月已計入支出的刷卡款，不列入每日額度。
+  for (const event of snapshot.forecastEvents) if (event.event_date.startsWith(key) && event.event_date >= today && event.kind === 'expense' && !event.account_id) expenses += event.amount
   for (const debt of snapshot.liabilities) {
     const dueMonth = monthsBetween(debt.start_date, end)
     if (dueMonth < 1 || dueMonth > debt.term_months || debt.start_date > end) continue

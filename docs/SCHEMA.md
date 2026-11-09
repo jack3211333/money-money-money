@@ -10,6 +10,7 @@ Migrations：
 > 2026-11-01（台北時間；使用者回報已套用，實際時間未提供）`202611010001_add_stock_shares.sql`：新增可空的 `stocks.shares` bigint 欄位，並限制股數不得小於 0；既有資料不回填。
 > 2026-11-04（使用者回報已套用，實際時間未提供）`202611040001_push_notifications.sql`：新增具 RLS 的推播訂閱表與有效 endpoint 唯一索引、更新時間 trigger，並從 Vault 設定每日台灣時間 06:00／23:00 的 pg_cron 工作；migration 不包含任何專案 URL 或密鑰值。
 > 2026-11-09 20:48（台北時間）`202611090001_net_worth_snapshots.sql`：已透過 Supabase Management API 套用，重複執行無誤；新增 `net_worth_snapshots`，`(user_id, snapshot_month)` 唯一、RLS 政策、`updated_at` trigger 與索引均已查驗存在。
+> 2026-11-10 01:06（台北時間）`202611100001_credit_card_accounts.sql`：已透過 Supabase Management API 套用，重複執行無誤。套用前已將 `accounts`、`forecast_events` 完整備份至 `backup.accounts_20261110`、`backup.forecast_events_20261110`（`backup` schema 不開放 anon／authenticated）。重建 `accounts_kind_check` 加入 `credit_card`；新增信用卡初始金額必須為 0 的 trigger；`forecast_events` 新增 `account_id`、`auto_amount`、索引與連結驗證 trigger。已查驗限制、欄位、trigger 存在，並實測初始金額非 0 的信用卡會被拒絕。
 
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
@@ -26,6 +27,7 @@ Migrations：
 - `supabase/migrations/202611010001_add_stock_shares.sql`
 - `supabase/migrations/202611040001_push_notifications.sql`（使用者回報已套用）
 - `supabase/migrations/202611090001_net_worth_snapshots.sql`
+- `supabase/migrations/202611100001_credit_card_accounts.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -49,7 +51,7 @@ Migrations：
 
 `accounts.sort_order` 為使用者專屬整數順序，總覽、設定與帳戶選單共用此順序；設定頁可排序封存帳戶，但封存帳戶不出現在交易選單。`202610280002` 依既有名稱升冪順序初始化，新增帳戶由 Repository 指派目前末端的下一個值。
 
-`accounts.kind` 允許 `cash`、`bank` 與 `stored_value`（儲值卡）；儲值卡與現金、銀行一樣計入總現金與淨資產。`202610250002` migration 移除 `recurring_rules.account_id`、`target_account_id`、`investment_plans.funding_account_id` 與 `forecast_events.account_id`。既有固定轉帳先軟刪除；有效固定設定只允許收入與支出。推演收支直接加減總現金，股票持續投入減少總現金並增加所選股票市值。`202610250003` 移除股票帳戶類型，並清空舊股票的帳戶關聯。
+`accounts.kind` 允許 `cash`、`bank`、`stored_value`（儲值卡）與 `credit_card`（信用卡，`202611100001` 加入；資料庫 trigger 限制初始金額必須為 0）。信用卡餘額為負時計入負債、為正時計入現金；繳款以轉帳轉入信用卡帳戶，不計為支出。儲值卡與現金、銀行一樣計入總現金與淨資產。`202610250002` migration 移除 `recurring_rules.account_id`、`target_account_id`、`investment_plans.funding_account_id` 與 `forecast_events.account_id`。既有固定轉帳先軟刪除；有效固定設定只允許收入與支出。推演收支直接加減總現金，股票持續投入減少總現金並增加所選股票市值。`202610250003` 移除股票帳戶類型，並清空舊股票的帳戶關聯。
 
 `transactions.is_transfer_fee` 預設為 `false`。有手續費的轉帳使用同一個 `transfer_group_id` 寫入一筆 `kind='expense'`、`is_transfer_fee=true` 的支出，帳戶為轉出帳戶，分類為「金融/政府 › 手續費」。手續費為 0 時不建立該支出資料；既有轉帳因沒有手續費資料列而視為 0。`save_transfer` RPC 在單一資料庫交易中軟刪除舊群組資料並重建轉帳與可選手續費，且確認帳戶、分類及群組屬於目前使用者。
 
@@ -66,3 +68,5 @@ Migrations：
 `push_subscriptions` 只由登入者管理自己的訂閱；endpoint 有效資料使用部分唯一索引，關閉通知會軟刪除。202611040001 另啟用 pg_cron／pg_net，工作以 Vault 的 `project_url`、`cron_secret` 呼叫 `daily-budget-push`，不在 migration 保存秘密值；使用者已回報套用。
 
 `net_worth_snapshots` 的 `snapshot_month` 必須是當月 1 日，`(user_id, snapshot_month)` 為唯一限制（供 App upsert）；`stocks`、`liabilities` 不得為負，`net_worth` 必須等於 `cash + stocks - liabilities`。`is_estimated=true` 代表依月底推算的補齊值（股票以目前估值基準估算），會隨補記交易更新；`false` 為 App 實際記錄的本月值，跨月後不再覆蓋。
+
+`forecast_events.account_id` 可為空，非空時代表信用卡帳單：只能連結同使用者的 `credit_card` 帳戶且必須是支出。App 為每張有欠款的信用卡在下月 1 日維持一筆帳單；`auto_amount=true` 時金額隨欠款自動更新、欠款歸零時自動軟刪除（之後可恢復），使用者改金額或刪除時設為 `false`。帳單影響推演現金，但不列入每日額度（前端與 Edge Function 皆排除有 `account_id` 的事件）。

@@ -12,13 +12,13 @@ import { authRepository, financeRepository, pushRepository } from './data/reposi
 import { offlineStore, type FailedTransaction, type PendingTransaction } from './data/offline'
 import { isSupabaseConfigured } from './data/supabase'
 import { emptySnapshot, type Account, type Category, type CategoryDirection, type FinanceSnapshot, type ForecastEvent, type Liability, type QuickTransaction, type Stock, type Transaction } from './data/types'
-import { accountBalance, dailyBudget, netWorthRowsToSave, dateToday, financialTotals, liabilityBalance, paymentForRate, rateForPayment, stockValue, twd } from './lib/finance'
+import { accountBalance, cardBillChanges, dailyBudget, netWorthRowsToSave, nextMonthRange, dateToday, financialTotals, liabilityBalance, paymentForRate, rateForPayment, stockValue, twd } from './lib/finance'
 
 type Page = 'home' | 'transactions' | 'reports' | 'assets' | 'forecast' | 'settings'
 type Modal = 'transaction' | 'quickTransactions' | 'account' | 'category' | 'liability' | 'stock' | 'recurring' | 'investment' | 'forecastEvent' | null
 type TransferEdit = Transaction & { targetAccountId?: string; defaultDate?: string }
 type CategoryDialogTarget = { item?: Category; parentId?: string; direction?: CategoryDirection }
-const accountKinds: Record<Account['kind'], string> = { cash: '現金', bank: '銀行', stored_value: '儲值卡' }
+const accountKinds: Record<Account['kind'], string> = { cash: '現金', bank: '銀行', stored_value: '儲值卡', credit_card: '信用卡' }
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null); const [data, setData] = useState<FinanceSnapshot>(emptySnapshot)
@@ -26,9 +26,19 @@ export default function App() {
   const [launchNewTransaction, setLaunchNewTransaction] = useState(() => new URLSearchParams(window.location.search).get('action') === 'new-transaction')
   const refreshLocal = async (current = user) => { if (!current) return; const [pendingRows, failedRows] = await Promise.all([offlineStore.pending(current.id), offlineStore.failed(current.id)]); setPending(pendingRows); setFailed(failedRows) }
   const mergePending = (snapshot: FinanceSnapshot, rows: PendingTransaction[]): FinanceSnapshot => ({ ...emptySnapshot, ...snapshot, quickTransactions: snapshot.quickTransactions ?? [], transactions: [...snapshot.transactions, ...rows.map((row) => ({ ...row, created_at: row.queued_at, updated_at: row.queued_at, deleted_at: null }))] })
-  const recordNetWorth = async (snapshot: FinanceSnapshot) => {
+  // 連線且無待同步交易時：同步信用卡帳單（推演下月支出），再記錄淨資產快照。
+  const recordNetWorth = async (loaded: FinanceSnapshot) => {
+    let snapshot = loaded
     if (!user) return
     try {
+      const { start, end } = nextMonthRange()
+      const billChanges = cardBillChanges(snapshot, await financeRepository.linkedCardBills(start, end))
+      if (billChanges.length) {
+        await financeRepository.applyCardBillChanges(billChanges)
+        snapshot = await financeRepository.snapshot()
+        await offlineStore.saveSnapshot(user.id, snapshot)
+        setData(snapshot)
+      }
       const rows = netWorthRowsToSave(snapshot)
       if (!rows.length) return
       const saved = await financeRepository.upsertNetWorthSnapshots(rows.map((row) => ({ ...row, user_id: user.id })))
@@ -234,7 +244,7 @@ function Assets({ data, open, reload, online, onMessage }: { data: FinanceSnapsh
       setUpdatingStocks(false)
     }
   }
-  return <><Section title="負債" action="新增" click={() => open('liability')}><div className="list">{data.liabilities.map((item) => <div className="row" key={item.id}><span><b>{item.name}</b><small>{item.kind === 'loan' ? `貸款 · 年利率 ${item.annual_rate_bps / 100}%` : '分期／零卡'} · 月繳 ${twd(item.monthly_payment)}</small></span><strong>{twd(liabilityBalance(item))}</strong><button className="text" onClick={() => open('liability', item)}>編輯</button><button className="text danger" onClick={() => void remove('liabilities', item.id)}>刪除</button></div>)}{!data.liabilities.length && <Empty text="沒有未清償負債。" />}</div></Section><Section title="股票" action="新增" click={() => open('stock')}><div className="toolbar-actions"><button type="button" className="secondary" disabled={updatingStocks} onClick={() => void updateStockPrices()}>{updatingStocks ? '更新中…' : '更新股價'}</button></div><div className="list">{data.stocks.map((item) => <div className="row" key={item.id}><span><b>{item.ticker}</b><small>年化 {item.annual_return_bps / 100}%</small></span><strong>{twd(stockValue(item))}</strong><button className="text" onClick={() => open('stock', item)}>編輯</button><button className="text danger" onClick={() => void remove('stocks', item.id)}>刪除</button></div>)}{!data.stocks.length && <Empty text="新增股票並輸入目前市值。" />}</div></Section></>
+  return <><Section title="負債" action="新增" click={() => open('liability')}><div className="list">{data.liabilities.map((item) => <div className="row" key={item.id}><span><b>{item.name}</b><small>{item.kind === 'loan' ? `貸款 · 年利率 ${item.annual_rate_bps / 100}%` : '分期／零卡'} · 月繳 ${twd(item.monthly_payment)}</small></span><strong>{twd(liabilityBalance(item))}</strong><button className="text" onClick={() => open('liability', item)}>編輯</button><button className="text danger" onClick={() => void remove('liabilities', item.id)}>刪除</button></div>)}{data.accounts.filter((account) => account.kind === 'credit_card' && accountBalance(account, data.transactions) < 0).map((account) => <div className="row" key={account.id}><AccountIcon iconKey={account.icon_key} /><span><b>{account.name}</b><small>信用卡未繳 · 從其他帳戶轉帳到此帳戶即可繳款</small></span><strong>{twd(-accountBalance(account, data.transactions))}</strong></div>)}{!data.liabilities.length && !data.accounts.some((account) => account.kind === 'credit_card' && accountBalance(account, data.transactions) < 0) && <Empty text="沒有未清償負債。" />}</div></Section><Section title="股票" action="新增" click={() => open('stock')}><div className="toolbar-actions"><button type="button" className="secondary" disabled={updatingStocks} onClick={() => void updateStockPrices()}>{updatingStocks ? '更新中…' : '更新股價'}</button></div><div className="list">{data.stocks.map((item) => <div className="row" key={item.id}><span><b>{item.ticker}</b><small>年化 {item.annual_return_bps / 100}%</small></span><strong>{twd(stockValue(item))}</strong><button className="text" onClick={() => open('stock', item)}>編輯</button><button className="text danger" onClick={() => void remove('stocks', item.id)}>刪除</button></div>)}{!data.stocks.length && <Empty text="新增股票並輸入目前市值。" />}</div></Section></>
 }
 function Settings({ data, open, reload, logout, user, online }: { data: FinanceSnapshot; open: (m: Modal, item?: unknown) => void; reload: () => Promise<void>; logout: () => Promise<void>; user: User | null; online: boolean }) {
   const moveAccount = async (index: number, offset: -1 | 1) => {
@@ -475,11 +485,15 @@ function AccountDialog({ item, close, done }: { item: Account | null; close: () 
   const { busy, error, save } = useSave(done)
   return <Dialog title={item ? '編輯帳戶' : '新增帳戶'} close={close}><form className="form" onSubmit={(event) => {
     event.preventDefault()
-    void save(() => financeRepository.saveAccount({ ...(item ? { id: item.id } : {}), name, kind: kind as Account['kind'], opening_balance: Number(opening), currency: 'TWD', is_archived: archived, icon_key: iconKey }))
+    void save(async () => {
+      if (kind === 'credit_card' && item && item.opening_balance !== 0) throw new Error('起始餘額不是 0 的帳戶不能改為信用卡；請新增一個信用卡帳戶。')
+      return financeRepository.saveAccount({ ...(item ? { id: item.id } : {}), name, kind: kind as Account['kind'], opening_balance: kind === 'credit_card' ? 0 : Number(opening), currency: 'TWD', is_archived: archived, icon_key: iconKey })
+    })
   }}>
     <label>名稱<input autoFocus required value={name} onChange={(event) => setName(event.target.value)} /></label>
-    <label>類型<select value={kind} onChange={(event) => setKind(event.target.value)}><option value="cash">現金</option><option value="bank">銀行</option><option value="stored_value">儲值卡</option></select></label>
-    <label>起始餘額<input required inputMode="numeric" value={opening} onChange={(event) => setOpening(event.target.value.replace(/[^-0-9]/g, ''))} /></label>
+    <label>類型<select value={kind} onChange={(event) => setKind(event.target.value)}><option value="cash">現金</option><option value="bank">銀行</option><option value="stored_value">儲值卡</option><option value="credit_card">信用卡</option></select></label>
+    <label>起始餘額<input required inputMode="numeric" disabled={kind === 'credit_card'} value={kind === 'credit_card' ? '0' : opening} onChange={(event) => setOpening(event.target.value.replace(/[^-0-9]/g, ''))} /></label>
+    {kind === 'credit_card' && <small>信用卡起始餘額固定為 0。刷卡記為此帳戶的支出；繳卡費請從其他帳戶「轉帳」到此帳戶，不計為支出。未繳金額計入負債。</small>}
     <fieldset className="icon-field"><legend>帳戶圖標</legend><div className="account-icon-grid">
       <button type="button" className={!iconKey ? 'account-icon-choice selected' : 'account-icon-choice'} aria-label="不使用帳戶圖標" aria-pressed={!iconKey} onClick={() => setIconKey(null)}><AccountIcon iconKey={null} size={48} /></button>
       {accountIconOptions.map((option, index) => <button type="button" className={iconKey === option.key ? 'account-icon-choice selected' : 'account-icon-choice'} aria-label={`帳戶圖標 ${index + 1}`} aria-pressed={iconKey === option.key} key={option.key} onClick={() => setIconKey(option.key)}><AccountIcon iconKey={option.key} size={48} /></button>)}
