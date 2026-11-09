@@ -138,24 +138,6 @@ export const financeRepository = {
     if (error) throw error
     return data as NetWorthSnapshot[]
   },
-  async linkedCardBills(start: string, end: string) {
-    const { data, error } = await client().from('forecast_events').select('*').not('account_id', 'is', null).gte('event_date', start).lte('event_date', end)
-    if (error) throw error
-    return data as ForecastEvent[]
-  },
-  async applyCardBillChanges(changes: { id?: string; account_id: string; name?: string; amount: number; event_date?: string; deleted_at?: string | null }[]) {
-    for (const change of changes) {
-      const { id, ...values } = change
-      const { error } = id
-        ? await client().from('forecast_events').update(values as never).eq('id', id)
-        : await client().from('forecast_events').insert({ ...values, kind: 'expense', auto_amount: true } as never)
-      if (error) throw error
-    }
-  },
-  async dismissCardBill(id: string) {
-    const { error } = await client().from('forecast_events').update({ auto_amount: false, deleted_at: new Date().toISOString() } as never).eq('id', id)
-    if (error) throw error
-  },
   async softDelete(table: TableName, id: string) {
     const { error } = await client().from(table).update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) throw error

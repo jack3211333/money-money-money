@@ -1,4 +1,4 @@
-import type { Account, FinanceSnapshot, ForecastEvent, Liability, NetWorthSnapshot, Stock, Transaction } from '../data/types'
+import type { Account, FinanceSnapshot, Liability, NetWorthSnapshot, Stock, Transaction } from '../data/types'
 
 export const twd = (value: number) => new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(value)
 export const dateToday = () => {
@@ -65,27 +65,18 @@ export const stockValue = (stock: Stock, date = dateToday()) => {
   return base * (1 + stock.annual_return_bps / 10000) ** years
 }
 
-export const isCreditCard = (account: Pick<Account, 'kind'>) => account.kind === 'credit_card'
-// 信用卡餘額為負時是未繳欠款，計入負債；為正（溢繳、退款）時計入現金。
-export const splitCardBalance = (balance: number) => ({ cash: Math.max(0, balance), debt: Math.max(0, -balance) })
-export const creditCardDebt = (snapshot: Pick<FinanceSnapshot, 'accounts' | 'transactions'>) => snapshot.accounts.filter(isCreditCard).reduce((sum, account) => sum + splitCardBalance(accountBalance(account, snapshot.transactions)).debt, 0)
-// 現金含非信用卡帳戶餘額及信用卡溢繳；信用卡欠款不扣現金，改計入負債。
-export const cashBalance = (snapshot: Pick<FinanceSnapshot, 'accounts' | 'transactions'>) => snapshot.accounts.reduce((sum, account) => { const balance = accountBalance(account, snapshot.transactions); return sum + (isCreditCard(account) ? splitCardBalance(balance).cash : balance) }, 0)
-
 export const financialTotals = (snapshot: FinanceSnapshot) => {
-  const cash = cashBalance(snapshot)
-  const cardDebt = creditCardDebt(snapshot)
+  const cash = snapshot.accounts.reduce((sum, account) => sum + accountBalance(account, snapshot.transactions), 0)
   const stocks = snapshot.stocks.reduce((sum, stock) => sum + stockValue(stock), 0)
-  const liabilities = snapshot.liabilities.reduce((sum, liability) => sum + liabilityBalance(liability), 0) + cardDebt
-  return { cash, stocks, liabilities, cardDebt, assets: cash + stocks, netWorth: cash + stocks - liabilities }
+  const liabilities = snapshot.liabilities.reduce((sum, liability) => sum + liabilityBalance(liability), 0)
+  return { cash, stocks, liabilities, assets: cash + stocks, netWorth: cash + stocks - liabilities }
 }
 
 export const dailyBudget = (snapshot: FinanceSnapshot, today = dateToday()) => {
   const [year, month, day] = today.split('-').map(Number)
   const monthStart = `${today.slice(0, 7)}-01`
   const plannedRow = buildForecast(snapshot)[0]
-  // 信用卡帳單是本月已計入支出的刷卡款，不重複列入每日額度。
-  const planned = (plannedRow?.expenses ?? 0) - (plannedRow?.cardBills ?? 0) + (plannedRow?.stockContribution ?? 0)
+  const planned = (plannedRow?.expenses ?? 0) + (plannedRow?.stockContribution ?? 0)
   const expenses = snapshot.transactions.filter((transaction) => transaction.kind === 'expense' && !transaction.deleted_at)
   const spentBeforeToday = expenses.filter((transaction) => transaction.transaction_date >= monthStart && transaction.transaction_date < today).reduce((sum, transaction) => sum + transaction.amount, 0)
   const spentToday = expenses.filter((transaction) => transaction.transaction_date === today).reduce((sum, transaction) => sum + transaction.amount, 0)
@@ -94,13 +85,12 @@ export const dailyBudget = (snapshot: FinanceSnapshot, today = dateToday()) => {
 }
 
 export type ForecastExpense = { name: string; amount: number }
-export type ForecastMonth = { label: string; income: number; expenses: number; cardBills: number; expenseItems: ForecastExpense[]; monthlyNet: number; cash: number; stocks: number; stockContribution: number; cumulativeReturn: number; liabilities: number; netWorth: number }
+export type ForecastMonth = { label: string; income: number; expenses: number; expenseItems: ForecastExpense[]; monthlyNet: number; cash: number; stocks: number; stockContribution: number; cumulativeReturn: number; liabilities: number; netWorth: number }
 
 export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
   const [todayYear, todayMonth] = dateToday().split('-').map(Number)
   const start = new Date(todayYear, todayMonth - 1, 1)
-  // 起始現金不扣信用卡欠款；欠款由下月的信用卡帳單一次性支出扣除，避免重複計算。
-  let projectedCash = cashBalance(snapshot)
+  let projectedCash = snapshot.accounts.reduce((sum, account) => sum + accountBalance(account, snapshot.transactions), 0)
   const stockValues = Object.fromEntries(snapshot.stocks.map((stock) => [stock.id, stockValue(stock)])) as Record<string, number>
   const initialStockValue = Object.values(stockValues).reduce((sum, value) => sum + value, 0)
   let cumulativeContribution = 0
@@ -113,7 +103,6 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
     const monthEnd = `${monthKey}-${String(month.getDate()).padStart(2, '0')}`
     const today = dateToday()
     let income = 0
-    let cardBills = 0
     let stockContribution = 0
     let loanPayments = 0
     const expenseItems: ForecastExpense[] = []
@@ -129,8 +118,7 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
       const signed = event.kind === 'income' ? event.amount : -event.amount
       projectedCash += signed
       if (event.kind === 'income') income += event.amount
-      else if (event.account_id) cardBills += event.amount
-      if (event.kind === 'expense') addExpense(`${event.name} · ${event.event_date.slice(5)}`, event.amount)
+      else addExpense(`${event.name} · ${event.event_date.slice(5)}`, event.amount)
     })
     snapshot.liabilities.forEach((liability) => {
       const dueMonth = monthsBetween(liability.start_date, monthEnd)
@@ -154,7 +142,7 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
     const stocks = Object.values(stockValues).reduce((sum, value) => sum + value, 0)
     const liabilities = snapshot.liabilities.reduce((sum, liability) => sum + liabilityBalance(liability, monthEnd), 0)
     const expenses = expenseItems.reduce((sum, item) => sum + item.amount, 0)
-    return { label: `${month.getFullYear()}/${String(monthNumber).padStart(2, '0')}`, income, expenses, cardBills, expenseItems, monthlyNet: income - expenses - stockContribution, cash, stocks, stockContribution, cumulativeReturn: stocks - initialStockValue - cumulativeContribution, liabilities, netWorth: cash + stocks - liabilities }
+    return { label: `${month.getFullYear()}/${String(monthNumber).padStart(2, '0')}`, income, expenses, expenseItems, monthlyNet: income - expenses - stockContribution, cash, stocks, stockContribution, cumulativeReturn: stocks - initialStockValue - cumulativeContribution, liabilities, netWorth: cash + stocks - liabilities }
   })
 }
 
@@ -186,15 +174,11 @@ export const currentNetWorth = (snapshot: FinanceSnapshot): NetWorthValues => {
 }
 
 export const estimatedNetWorthAt = (snapshot: FinanceSnapshot, date: string): NetWorthValues => {
-  const cardIds = new Set(snapshot.accounts.filter(isCreditCard).map((account) => account.id))
-  const openings = snapshot.accounts.filter((account) => !cardIds.has(account.id) && taipeiDate(account.created_at) <= date).reduce((sum, account) => sum + account.opening_balance, 0)
-  const movements = snapshot.transactions.filter((transaction) => !cardIds.has(transaction.account_id) && transaction.transaction_date <= date).reduce((sum, transaction) => sum + signedAmount(transaction), 0)
-  const cards = snapshot.accounts.filter(isCreditCard).map((account) => splitCardBalance(snapshot.transactions.filter((transaction) => transaction.account_id === account.id && transaction.transaction_date <= date).reduce((sum, transaction) => sum + signedAmount(transaction), 0)))
-  const cardCash = cards.reduce((sum, card) => sum + card.cash, 0)
-  const cardDebt = cards.reduce((sum, card) => sum + card.debt, 0)
+  const openings = snapshot.accounts.filter((account) => taipeiDate(account.created_at) <= date).reduce((sum, account) => sum + account.opening_balance, 0)
+  const movements = snapshot.transactions.filter((transaction) => transaction.transaction_date <= date).reduce((sum, transaction) => sum + signedAmount(transaction), 0)
   const stocks = snapshot.stocks.filter((stock) => taipeiDate(stock.created_at) <= date).reduce((sum, stock) => sum + stockValue(stock, date), 0)
   const liabilities = snapshot.liabilities.filter((liability) => liability.start_date <= date).reduce((sum, liability) => sum + liabilityBalance(liability, date), 0)
-  return roundedValues(openings + movements + cardCash, stocks, liabilities + cardDebt)
+  return roundedValues(openings + movements, stocks, liabilities)
 }
 
 const sameValues = (a: NetWorthValues, b: NetWorthValues) => a.cash === b.cash && a.stocks === b.stocks && a.liabilities === b.liabilities && a.net_worth === b.net_worth
@@ -220,35 +204,4 @@ export const netWorthRowsToSave = (snapshot: FinanceSnapshot, today = dateToday(
   const values = currentNetWorth(snapshot)
   if (!saved || saved.is_estimated || !sameValues(saved, values)) rows.push({ snapshot_month: `${currentMonth}-01`, is_estimated: false, ...values })
   return rows
-}
-
-// ── 信用卡帳單（推演的下月一次性支出）──
-// 每張有欠款的信用卡，在下個月 1 日維持一筆連結帳戶的一次性支出：
-// - auto_amount=true 時金額跟著目前欠款更新；使用者改過金額後 auto_amount=false，不再自動更新。
-// - 欠款歸零時自動軟刪除（保留 auto_amount=true，之後有欠款會恢復）。
-// - 使用者刪除者為 auto_amount=false 且已刪除：該月不再產生，下個月重新產生。
-export type CardBillChange = { id?: string; account_id: string; name?: string; amount: number; event_date?: string; deleted_at?: string | null }
-export const nextMonthRange = (today = dateToday()) => {
-  const month = addMonths(today.slice(0, 7), 1)
-  return { start: `${month}-01`, end: lastDayOfMonth(month) }
-}
-export const cardBillChanges = (snapshot: Pick<FinanceSnapshot, 'accounts' | 'transactions'>, linkedEvents: ForecastEvent[], today = dateToday(), now = new Date().toISOString()): CardBillChange[] => {
-  const { start, end } = nextMonthRange(today)
-  const changes: CardBillChange[] = []
-  for (const account of snapshot.accounts.filter(isCreditCard)) {
-    const debt = splitCardBalance(accountBalance(account, snapshot.transactions)).debt
-    const events = linkedEvents.filter((event) => event.account_id === account.id && event.event_date >= start && event.event_date <= end)
-    const active = events.find((event) => !event.deleted_at)
-    if (active) {
-      if (!active.auto_amount) continue
-      if (debt <= 0) changes.push({ id: active.id, account_id: account.id, amount: active.amount, deleted_at: now })
-      else if (active.amount !== debt) changes.push({ id: active.id, account_id: account.id, amount: debt })
-      continue
-    }
-    if (debt <= 0 || events.some((event) => !event.auto_amount)) continue
-    const revivable = events.find((event) => event.auto_amount)
-    if (revivable) changes.push({ id: revivable.id, account_id: account.id, amount: debt, deleted_at: null })
-    else changes.push({ account_id: account.id, name: `${account.name} 帳單`, amount: debt, event_date: start })
-  }
-  return changes
 }
