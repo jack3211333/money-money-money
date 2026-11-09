@@ -96,6 +96,7 @@ export const buildForecast = (snapshot: FinanceSnapshot): ForecastMonth[] => {
   let cumulativeContribution = 0
   const activeStockIds = new Set(snapshot.stocks.map((stock) => stock.id))
   return Array.from({ length: 12 }, (_, index) => {
+    // 第 0 天代表前一個月的最後一天，因此 index 0 是「下個月」的月底；推演從下個月開始，每日額度也使用這一列。
     const month = new Date(start.getFullYear(), start.getMonth() + index + 2, 0)
     const monthNumber = month.getMonth() + 1
     const monthKey = `${month.getFullYear()}-${String(monthNumber).padStart(2, '0')}`
