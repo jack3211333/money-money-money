@@ -25,6 +25,7 @@
 ## 股價每日自動更新（2026-11-10）
 
 - 新增 Edge Function `stock-price-update`（`x-cron-secret` 驗證、`--no-verify-jwt`）：抓 TWSE／TPEx 收盤價，以「股數 × 收盤價」四捨五入更新所有使用者已填股數的股票市值，估值日期採行情資料日期；估值日期較新的手動估值或數值未變者略過。手動「更新股價」按鈕保留，資產頁顯示自動更新說明。
+- 修正收盤價來源：`openapi.twse.com.tw` 的 `STOCK_DAY_ALL` 在收盤當晚 20:00 仍是前一交易日資料，手動更新卻以當天日期儲存，造成價格落後一天（006208 為 223.6，實際 228.9）。手動 `/api/quote` 與 `stock-price-update` 改為先查當日 TWSE `MI_INDEX` 與 TPEx `dailyQuotes`，查不到（假日、盤中或尚未公布）才退回 OpenAPI 最近一日資料；回傳並儲存行情日期作為估值日期。已部署函式 version 3，實際執行後兩檔更新為 228.9、117.8，與券商 App 一致；修正前備份 `backup.stocks_20261110_price_fix`。
 - Migration `202611100002_daily_stock_price_update.sql` 新增 pg_cron 工作，台灣時間週一至週五 18:00 執行；已套用並確認 active。已透過 Management API 部署函式（version 1，ACTIVE），以 pg_net 實際呼叫回應 200，兩檔股票皆取得報價。
 
 # 1.1 發布狀態

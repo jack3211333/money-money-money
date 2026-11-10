@@ -208,7 +208,7 @@ function Assets({ data, open, reload, online, onMessage }: { data: FinanceSnapsh
       const tickers = [...new Set(stocksToUpdate.map((stock) => stock.ticker.trim().toUpperCase()))]
       const response = await fetch(`/api/quote?tickers=${encodeURIComponent(tickers.join(','))}`, { headers: { Accept: 'application/json' } })
       if (!response.ok) throw new Error(`報價服務回應 ${response.status}`)
-      const payload = await response.json() as { prices?: Record<string, { close?: unknown }>; missing?: string[] }
+      const payload = await response.json() as { prices?: Record<string, { close?: unknown; date?: unknown }>; missing?: string[] }
       if (!payload.prices || typeof payload.prices !== 'object') throw new Error('報價服務回傳格式無效。')
       const unavailable = new Set(payload.missing ?? [])
       const updated: string[] = []
@@ -218,7 +218,8 @@ function Assets({ data, open, reload, online, onMessage }: { data: FinanceSnapsh
         const close = Number(payload.prices[ticker]?.close)
         if (unavailable.has(ticker) || !Number.isFinite(close) || close <= 0) { unavailable.add(ticker); continue }
         try {
-          await financeRepository.saveStock({ id: stock.id, valuation_amount: Math.round((stock.shares ?? 0) * close), valuation_date: dateToday() })
+          const quoteDate = String(payload.prices[ticker]?.date ?? '')
+          await financeRepository.saveStock({ id: stock.id, valuation_amount: Math.round((stock.shares ?? 0) * close), valuation_date: /^\d{4}-\d{2}-\d{2}$/.test(quoteDate) && quoteDate <= dateToday() ? quoteDate : dateToday() })
           updated.push(ticker)
         } catch {
           failed.push(ticker)
