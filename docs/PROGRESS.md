@@ -16,6 +16,12 @@
 - 新增 Edge Function `widget-summary`（JWT 驗證、只讀），計算與總覽 `financialTotals` 相同；`scripts/verify-widget-summary.ts` 確認淨資產與前端 `currentNetWorth` 一致。網站建置時產生 `/money-widget.js`。無資料庫 migration。
 - 已透過 Supabase Management API 部署 `widget-summary`（version 1，ACTIVE）；實機登入與小工具顯示待使用者驗收。
 
+## Excel 財務報表（2026-11-10）
+
+- 設定頁新增「Excel 財務報表」，在瀏覽器端以 ExcelJS 產生 `財務報表-YYYY-MM-DD.xlsx`（按下時才載入，不影響主程式大小）。共 15 張工作表：摘要（財務現況、近 12 個月收支與儲蓄率、緊急預備金月數、負債還款比、支出前五大、本月額度、工作表說明與檢視注意事項）、月度收支、支出／收入分類分析（近 12 個月逐月、月平均、占比）、交易明細（轉帳合併一列、可篩選）、帳戶、股票、負債、固定收支、持續投入、一次性收支、12 個月推演、淨資產紀錄、分類設定、快速記帳選項。
+- 數字沿用 `financialTotals`、`buildForecast`、`dailyBudget` 等既有計算；收支口徑與報表頁一致（轉帳不計、手續費計入支出）。已刪除資料不列入。無資料庫 migration。
+- `scripts/verify-excel-report.ts` 以假資料產生並讀回活頁簿，驗證工作表、淨資產、帳戶餘額、轉帳合併與分類合計；lint 與正式建置通過，並以 LibreOffice 轉 PDF 檢查版面。
+
 # 1.1 發布狀態
 
 - **版本：1.1.0**（產品版本名稱：1.1）。
