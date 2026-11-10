@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.widget-summary]
 verify_jwt = true
+
+[functions.stock-price-update]
+verify_jwt = false

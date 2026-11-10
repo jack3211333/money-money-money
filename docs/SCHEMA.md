@@ -14,6 +14,7 @@ Migrations：
 
 > 2026-11-10（台北時間）iPhone 小工具沒有資料庫 schema 或 migration 變更；新增只讀 Edge Function `widget-summary` 讀取既有資料表。
 > 2026-11-10（台北時間）Excel 財務報表沒有資料庫 schema 或 migration 變更；只讀取 App 已載入的資料。
+> 2026-11-10 19:54（台北時間）`202611100002_daily_stock_price_update.sql`：已透過 Supabase Management API 套用，重複執行無誤；新增 pg_cron 工作 `daily-stock-price-update`（`0 10 * * 1-5`，台灣時間週一至週五 18:00）以 Vault 的 `project_url`、`cron_secret` 呼叫 Edge Function `stock-price-update`；無資料表結構變更。已查驗工作為 active。套用前備份 `backup.stocks_20261110_price_job`。
 
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
@@ -30,6 +31,7 @@ Migrations：
 - `supabase/migrations/202611010001_add_stock_shares.sql`
 - `supabase/migrations/202611040001_push_notifications.sql`（使用者回報已套用）
 - `supabase/migrations/202611090001_net_worth_snapshots.sql`
+- `supabase/migrations/202611100002_daily_stock_price_update.sql`
 
 | 資料表 | 用途 |
 | --- | --- |
@@ -59,7 +61,7 @@ Migrations：
 
 `202610250004` 只更新 `jack3211333@gmail.com` 的有效分類外觀設定：依分類名稱寫入 Lucide `icon_key`，並把每個支出大分類及其小分類設為同一 `color`。未變更分類名稱、層級、交易關聯或其他使用者資料。
 
-`stocks.valuation_amount` 與 `valuation_date` 必填，代表目前市值基準及其日期。估值與推演依年化報酬率計算。202610240002 migration 將既有股票截至套用日的推算市值回填為新基準，再移除當時的 `shares` 與 `total_cost`。`202611010001` 重新加入可空的 `shares`（bigint，限制大於等於 0），用於收盤價更新時計算持倉市值。App 新增／編輯股票時要求抓取收盤價並輸入股數，自動計算整數元市值、以操作當天作為估值日期；資產頁亦可批次更新已有股數的股票。年化報酬率仍可手動設定。
+`stocks.valuation_amount` 與 `valuation_date` 必填，代表目前市值基準及其日期。估值與推演依年化報酬率計算。202610240002 migration 將既有股票截至套用日的推算市值回填為新基準，再移除當時的 `shares` 與 `total_cost`。`202611010001` 重新加入可空的 `shares`（bigint，限制大於等於 0），用於收盤價更新時計算持倉市值。App 新增／編輯股票時要求抓取收盤價並輸入股數，自動計算整數元市值、以操作當天作為估值日期；資產頁亦可批次更新已有股數的股票；另由 pg_cron 每個交易日台灣時間 18:00 呼叫 `stock-price-update`，以 TWSE／TPEx 收盤價自動更新所有使用者已填股數的股票，估值日期採行情資料日期，且不覆蓋估值日期較新的手動估值。年化報酬率仍可手動設定。
 
 `liabilities.monthly_payment` 必填且為正整數 TWD。貸款年利率與月繳款按本息平均攤還公式互算；既有月繳款由原年利率回填。分期不顯示年利率，固定使用 0%；migration 將既有分期利率設為 0%，月繳款回填為本金除以期數的整數元。刪除股票時，資料庫 trigger 會軟刪除同一使用者對應的有效 `investment_plans`；推演亦只採用仍有效股票的計畫。
 

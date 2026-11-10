@@ -22,6 +22,11 @@
 - 數字沿用 `financialTotals`、`buildForecast`、`dailyBudget` 等既有計算；收支口徑與報表頁一致（轉帳不計、手續費計入支出）。已刪除資料不列入。無資料庫 migration。
 - `scripts/verify-excel-report.ts` 以假資料產生並讀回活頁簿，驗證工作表、淨資產、帳戶餘額、轉帳合併與分類合計；lint 與正式建置通過，並以 LibreOffice 轉 PDF 檢查版面。
 
+## 股價每日自動更新（2026-11-10）
+
+- 新增 Edge Function `stock-price-update`（`x-cron-secret` 驗證、`--no-verify-jwt`）：抓 TWSE／TPEx 收盤價，以「股數 × 收盤價」四捨五入更新所有使用者已填股數的股票市值，估值日期採行情資料日期；估值日期較新的手動估值或數值未變者略過。手動「更新股價」按鈕保留，資產頁顯示自動更新說明。
+- Migration `202611100002_daily_stock_price_update.sql` 新增 pg_cron 工作，台灣時間週一至週五 18:00 執行；已套用並確認 active。已透過 Management API 部署函式（version 1，ACTIVE），以 pg_net 實際呼叫回應 200，兩檔股票皆取得報價。
+
 # 1.1 發布狀態
 
 - **版本：1.1.0**（產品版本名稱：1.1）。
