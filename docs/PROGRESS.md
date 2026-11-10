@@ -10,6 +10,12 @@
 - 過去月份（自最早交易或帳戶建立月份起，最多 120 個月）若無實際紀錄，依月底推算補齊並標示 `is_estimated`：現金依開戶餘額與交易精確還原、負債依攤還公式，股票沒有歷史股價而以目前估值基準估算。推算值會隨補記交易更新，實際紀錄不會被覆蓋。
 - Migration `202611090001_net_worth_snapshots.sql` 已透過 Supabase Management API 套用並查驗；`scripts/verify-net-worth.ts`、既有每日額度腳本、lint 與正式建置均通過，手機寬度截圖確認圖表顯示正常。
 
+## iPhone 小工具（2026-11-10）
+
+- 新增 Scriptable 中型小工具，可放主畫面或今天視圖：目前淨資產、較上月增減（對比上月淨資產快照）、今日已支出、本月已支出。安裝步驟見 README。
+- 新增 Edge Function `widget-summary`（JWT 驗證、只讀），計算與總覽 `financialTotals` 相同；`scripts/verify-widget-summary.ts` 確認淨資產與前端 `currentNetWorth` 一致。網站建置時產生 `/money-widget.js`。無資料庫 migration。
+- 已透過 Supabase Management API 部署 `widget-summary`（version 1，ACTIVE）；實機登入與小工具顯示待使用者驗收。
+
 # 1.1 發布狀態
 
 - **版本：1.1.0**（產品版本名稱：1.1）。

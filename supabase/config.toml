@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.push-test]
 verify_jwt = true
+
+[functions.widget-summary]
+verify_jwt = true

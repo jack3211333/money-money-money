@@ -39,6 +39,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 - 可安裝 PWA、離線 app shell、離線新增收入／支出、恢復連線同步及 App 內失敗通知。
 - 總覽顯示下月推演支出與本日可支出額度；主 App 可設定台灣時間 06:00／23:00 Web Push 每日通知。iOS 推播為 best effort，06:00 可能延遲數秒至數分鐘，專注模式可能攔截通知。
 - iPhone 可用新增交易網址捷徑，或從 Safari 的 `/quick-add.html` 加入獨立「快速記帳」主畫面 App。
+- iPhone 中型小工具（Scriptable）：主畫面或今天視圖顯示目前淨資產、較上月增減、今日已支出與本月已支出。
 - Email＋密碼登入、Supabase 跨裝置同步與 RLS 資料隔離。
 
 ### iPhone 快速記帳
@@ -46,6 +47,17 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 - 捷徑 App：新增捷徑，依序加入「URL」與「打開 URL」動作；URL 填入 `https://你的正式網站網址/?action=new-transaction`，再將捷徑加入主畫面。
 - 獨立主畫面 App：在 Safari 開啟 `https://你的正式網站網址/quick-add.html`，從分享選單選「加入主畫面」。這個圖示會以「快速記帳」名稱安裝，開啟後直接進入新增交易表單。
 - 若尚未登入，先登入後會接續顯示表單。表單不會預填或自動儲存交易。
+
+### iPhone 小工具（今天視圖／主畫面）
+
+1. 在 iPhone 安裝免費的 **Scriptable**（App Store）。
+2. 用 Safari 開啟 `https://你的正式網站網址/money-widget.js`，全選並拷貝內容。
+3. 開啟 Scriptable，按右上角「＋」新增腳本，貼上內容並命名（例如「Money」）。
+4. 點一下腳本執行，選「登入／重新登入」，輸入與記帳 App 相同的 Email 與密碼；成功後會預覽小工具。密碼不會保存，只在 iOS 鑰匙圈保存登入 token。
+5. 在主畫面或今天視圖長按空白處 →「＋」→ 搜尋 Scriptable → 選**中型** → 加入。長按小工具 →「編輯小工具」→ Script 選剛剛的腳本。
+6. 數字更新頻率由 iOS 決定，約 15～30 分鐘一次；右上角顯示最後更新時間。點小工具會開啟記帳 App。若顯示「需要重新登入」，回 Scriptable 執行腳本重新登入。
+
+腳本於網站建置時由 `widget/money-widget.js` 產生，填入公開的 Supabase URL、Publishable key 與正式網址；資料來自 Edge Function `widget-summary`（只讀，以登入者 JWT 驗證）。
 
 產品版本為 1.2；每日額度與 Web Push 功能已完成驗收，詳見 [`docs/PROGRESS.md`](docs/PROGRESS.md)。通知時間固定為台灣時間 06:00 與 23:00，暫不開放自訂。
 
@@ -66,9 +78,10 @@ VITE_SUPABASE_PUBLISHABLE_KEY=你的 Publishable key
 ```sh
 npx supabase functions deploy daily-budget-push --no-verify-jwt --project-ref <REF>
 npx supabase functions deploy push-test --project-ref <REF>
+npx supabase functions deploy widget-summary --project-ref <REF>
 ```
 
-`daily-budget-push` 必須使用 `--no-verify-jwt`，因為 pg_cron 的 `net.http_post` 不會帶 `apikey`；該函式會驗證 `x-cron-secret`。`supabase/config.toml` 對應設定為 `[functions.daily-budget-push] verify_jwt = false`；`push-test` 維持 JWT 驗證，部署時不加 `--no-verify-jwt`。
+`daily-budget-push` 必須使用 `--no-verify-jwt`，因為 pg_cron 的 `net.http_post` 不會帶 `apikey`；該函式會驗證 `x-cron-secret`。`supabase/config.toml` 對應設定為 `[functions.daily-budget-push] verify_jwt = false`；`push-test` 與 iPhone 小工具用的 `widget-summary` 維持 JWT 驗證，部署時不加 `--no-verify-jwt`。
 
 ## 備份
 

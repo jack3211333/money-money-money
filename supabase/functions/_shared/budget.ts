@@ -9,8 +9,8 @@ export type BudgetSnapshot = { transactions: Tx[]; recurringRules: Rule[]; forec
 export const taipeiToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 const dateAt = (date: string) => new Date(`${date}T00:00:00Z`)
 const monthEnd = (year: number, month: number) => new Date(Date.UTC(year, month + 1, 0)).toISOString().slice(0, 10)
-const monthsBetween = (start: string, end: string) => { const a = dateAt(start); const b = dateAt(end); return Math.max(0, (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth()) }
-const liabilityBalance = (debt: Debt, date: string) => {
+export const monthsBetween = (start: string, end: string) => { const a = dateAt(start); const b = dateAt(end); return Math.max(0, (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth()) }
+export const liabilityBalance = (debt: Debt, date: string) => {
   const [year, month, day] = date.split('-').map(Number)
   const dueDay = Math.min(Number(debt.start_date.slice(8)), new Date(Date.UTC(year, month, 0)).getUTCDate())
   const paidMonths = Math.min(debt.term_months, Math.max(0, monthsBetween(debt.start_date, date) - (day < dueDay ? 1 : 0)))

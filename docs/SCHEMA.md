@@ -12,6 +12,8 @@ Migrations：
 > 2026-11-09 20:48（台北時間）`202611090001_net_worth_snapshots.sql`：已透過 Supabase Management API 套用，重複執行無誤；新增 `net_worth_snapshots`，`(user_id, snapshot_month)` 唯一、RLS 政策、`updated_at` trigger 與索引均已查驗存在。
 > 2026-11-10（台北時間）信用卡帳戶 migration `202611100001_credit_card_accounts.sql` 曾套用，後依使用者要求退版至 0e20fc0 並退回資料庫：刪除其 trigger、函式、索引與 `forecast_events.account_id`／`auto_amount` 欄位，`accounts_kind_check` 恢復為 `cash`／`bank`／`stored_value`（已軟刪除的測試信用卡帳戶改為 `bank`）。資料還原：恢復國泰世華 2026-11-03 的 14,071 元支出，軟刪除同日轉帳至信用卡的轉帳組。退回前備份於 `backup.*_20261110` 與 `backup.*_20261110_rollback`。目前 schema 與本文件其餘內容一致。
 
+> 2026-11-10（台北時間）iPhone 小工具沒有資料庫 schema 或 migration 變更；新增只讀 Edge Function `widget-summary` 讀取既有資料表。
+
 - `supabase/migrations/202610230001_initial_finance_schema.sql`
 - `supabase/migrations/202610230002_hierarchical_category_icons.sql`
 - `supabase/migrations/202610240001_account_icons.sql`
