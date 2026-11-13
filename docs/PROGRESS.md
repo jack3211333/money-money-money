@@ -28,6 +28,8 @@
 - 修正收盤價來源：`openapi.twse.com.tw` 的 `STOCK_DAY_ALL` 在收盤當晚 20:00 仍是前一交易日資料，手動更新卻以當天日期儲存，造成價格落後一天（006208 為 223.6，實際 228.9）。手動 `/api/quote` 與 `stock-price-update` 改為先查當日 TWSE `MI_INDEX` 與 TPEx `dailyQuotes`，查不到（假日、盤中或尚未公布）才退回 OpenAPI 最近一日資料；回傳並儲存行情日期作為估值日期。已部署函式 version 3，實際執行後兩檔更新為 228.9、117.8，與券商 App 一致；修正前備份 `backup.stocks_20261110_price_fix`。
 - Migration `202611100002_daily_stock_price_update.sql` 新增 pg_cron 工作，台灣時間週一至週五 18:00 執行；已套用並確認 active。已透過 Management API 部署函式（version 1，ACTIVE），以 pg_net 實際呼叫回應 200，兩檔股票皆取得報價。
 
+- 2026-11-13：資產頁每檔股票顯示「市值更新時間：YYYY-MM-DD HH:mm」（24 小時制），手動與排程更新皆寫入 `stocks.price_updated_at`；收盤價日期不同於更新日時附註收盤價日期。排查發現 11/11–11/13 的排程呼叫皆因 pg_net 60 秒逾時而未更新，改為平行查詢當日全市場行情、缺漏代號逐檔查 TWSE STOCK_DAY／TPEx tradingStock 取最近交易日（移除 OpenAPI），等待上限放寬為 140 秒。00662 自 11/10 後在證交所無成交資料，因此收盤價停在 117.8。函式 version 4 實際執行約 10 秒完成，兩檔皆寫入更新時間。
+
 # 1.1 發布狀態
 
 - **版本：1.1.0**（產品版本名稱：1.1）。
